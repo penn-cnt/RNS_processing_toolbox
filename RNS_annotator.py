@@ -35,20 +35,25 @@ with open(filename) as csvfile:
 	ecog_len_i = header.index('ECoG length') 		#sec
 	pt_i = header.index('Initials')
 
-	ctr=1
+	aNames=[]
+	aCtrs=[]
 	for row in reader:
 		if row(pt_i) == INITIALS:
-			# Parse datetimes into usec
+			# Parse datetimes into usec, shift timezone to GMT
 			tz_offset=str2dt_usec(row(trig_UTC_i))-str2dt_usec(row(trig_local_i))
 			start_local=str2dt_usec(row(start_local_i))
 
 			starttime=start_local+tz_offset
 			endtime=float(row(ecog_len_i))*1000000+starttime
 
-			ts.insert_annotation(row(annot_name_i),'annotation', start=starttime, end=int(endtime))
+			#Increment annotation ctr and add annotation type list
+			try:
+				annotName= row(annot_name_i)
+				aCtrs[aNames.index(annotName)]+=1
+			except:
+				aNames.append(annotName)
+				aCtrs.append(1)
+
+			ts.insert_annotation(annotName, annotName+' '+str(aCtrs[aNames.index(annotName)])
+				, start=starttime, end=int(endtime))
 		
-
-
-
-
-
