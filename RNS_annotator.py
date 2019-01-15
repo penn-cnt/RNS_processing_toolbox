@@ -31,7 +31,7 @@ with open(filename) as csvfile:
 	start_local_i = header.index('Timestamp')			# string ('2015-03-1 08:31:56.969')
 	trig_UTC_i = header.index('Raw UTC Timestamp')
 	trig_local_i = header.index('Raw Local Timestamp')
-	annot_name_i = header.index('ECoG type')
+	annot_name_i = header.index('ECoG trigger')
 	ecog_len_i = header.index('ECoG length') 		#sec
 	pt_i = header.index('Initials')
 
@@ -56,4 +56,4 @@ with open(filename) as csvfile:
 
 			ts.insert_annotation(annotName, annotName+' '+str(aCtrs[aNames.index(annotName)])
 				, start=starttime, end=int(endtime))
-		
+			
