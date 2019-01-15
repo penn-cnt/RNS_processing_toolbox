@@ -103,16 +103,16 @@ function [data] = dat2mef_RNS(server, dataPath, csv, numChan, U24id, inst)
     
     % Store the start times
     start_times = [];
-    tic;  
+    
+    % Retrieve the .dat file names
+    folder_contents = dir(fullfile(dataPath,'*.dat'));
+    datfile_names = {folder_contents.name};
+     
     % Iterate through the files
-    for i = 511:numFiles
+    for i = 1:numFiles
         
         % Track progress
         i
-        
-        % Retrieve the .dat file names
-        folder_contents = dir(fullfile(dataPath,'*.dat'));
-        datfile_names = {folder_contents.name};
         
         % Access a single .dat file for the given iteration
         DATfile = datfile_names{1,i};
@@ -145,16 +145,15 @@ function [data] = dat2mef_RNS(server, dataPath, csv, numChan, U24id, inst)
     % uses UNIX time, converted to microseconds. UNIX time consists of the
     % number of seconds that have elapsed since January 1, 1970, and Blackfynn
     % converts these seconds to microseconds.
+    
+    % Split the DATfile name at delimiters
+    DATfile_split = strsplit(DATfile, {'_', '.'});
 
-    mw_start=tic; % pair 2
+    % Create the beginning of the new file name
+    sub = [DATfile_split{1}];
+
     % Write the MEF files for each channel in the DAT file
         for j=1:numChan
-           
-            % Split the DATfile name at delimiters
-            DATfile_split = strsplit(DATfile, {'_', '.'});
-            
-            % Create the beginning of the new file name
-            sub = [DATfile_split{1}];
 
             % Label the channel (to store it as a separate MEF file)
             chanLabel=[sub, 'C', num2str(j), '.mef'];
@@ -222,7 +221,5 @@ function [data] = dat2mef_RNS(server, dataPath, csv, numChan, U24id, inst)
             mw.setVoltageConversionFactor(gain);
             mw.close;
         end
-       disp(toc(mw_start))
-       toc
     end
 end
