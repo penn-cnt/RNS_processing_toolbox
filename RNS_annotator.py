@@ -4,7 +4,7 @@ from blackfynn import Blackfynn
 
 ## SETTINGS to CHANGE:
 
-filename=('/path/to/file') 	#Path to CSV 
+filename=('/home/data/RNS_DataSharing/processed_20181103/AA_catalog.csv') 	#Path to CSV 
 INITIALS='AA'			#Patient Initials as in "Initials" column
 dataset= 'Neuropace RNS Dataset'
 package='N:package:02399265-21db-4c0b-b92c-c525e53795e9'		#Package Link
@@ -38,17 +38,17 @@ with open(filename) as csvfile:
 	aNames=[]
 	aCtrs=[]
 	for row in reader:
-		if row(pt_i) == INITIALS:
+		if row[pt_i] == INITIALS:
 			# Parse datetimes into usec, shift timezone to GMT
-			tz_offset=str2dt_usec(row(trig_UTC_i))-str2dt_usec(row(trig_local_i))
-			start_local=str2dt_usec(row(start_local_i))
+			tz_offset=str2dt_usec(row[trig_UTC_i])-str2dt_usec(row[trig_local_i])
+			start_local=str2dt_usec(row[start_local_i])
 
 			starttime=start_local+tz_offset
-			endtime=float(row(ecog_len_i))*1000000+starttime
+			endtime=float(row[ecog_len_i])*1000000+starttime
 
 			#Increment annotation ctr and add annotation type list
 			try:
-				annotName= row(annot_name_i)
+				annotName= row[annot_name_i]
 				aCtrs[aNames.index(annotName)]+=1
 			except:
 				aNames.append(annotName)
@@ -56,4 +56,5 @@ with open(filename) as csvfile:
 
 			ts.insert_annotation(annotName, annotName+' '+str(aCtrs[aNames.index(annotName)])
 				, start=starttime, end=int(endtime))
+			print(annotName, aNames, aCtrs)
 			
