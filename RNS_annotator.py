@@ -22,7 +22,7 @@ def str2dt_usec(s):
 	return int((dt - EPOCH).total_seconds() * 1000000)
 
 
-with open(filename, newline='') as csvfile:
+with open(filename) as csvfile:
 	reader = csv.reader(csvfile, delimiter=',')
 
 	# Get indices of timestamp, annotation name columns, etc.
