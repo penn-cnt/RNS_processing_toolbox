@@ -54,7 +54,7 @@ with open(filename) as csvfile:
 				aNames.append(annotName)
 				aCtrs.append(1)
 
-			description= annotName+' '+str(aCtrs[aNames.index(annotName)])+'-- '+row(trig_UTC_i)
+			description= annotName+' '+str(aCtrs[aNames.index(annotName)])+'-- '+row[trig_UTC_i]
 			ts.insert_annotation(annotName, description, start=starttime, end=int(endtime))
 
 			print(annotName, aNames, aCtrs)
