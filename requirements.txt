@@ -1,1 +1,2 @@
 blackfynn==2.6.0
+scipy==1.16.1
