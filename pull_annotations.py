@@ -14,5 +14,7 @@ ts=bf.get(package)
 layer = ts.get_layer(layerName);
 
 # Make sure annotations are correct. 
-anns = [(a.start, a.end) for a in layer.annotations()]; 
-sio.savemat(pathToOutputFile+'annots.mat', {'annots':anns})
+anns = [(a.start, a.end) for a in layer.annotations()];
+desc = [(a.description) for a in layer.annotations()];
+sio.savemat(pathToOutputFile+'annots.mat', {'annots':anns, 'descriptions': desc})
+ 
