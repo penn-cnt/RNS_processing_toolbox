@@ -3,6 +3,7 @@ from blackfynn import Blackfynn
 import numpy as np
 import csv
 import datetime as DT
+import pdb
 
 # TODO: Test this function
 def pull_annotations(package, layer, outputPath):
@@ -18,7 +19,7 @@ def pull_annotations(package, layer, outputPath):
 
 
 # TODO: test this function
- def annotate_UTC_from_mat(package, newLayer, annot_mat_file):
+def annotate_UTC_from_mat(package, newLayer, annot_mat_file):
 
 	bf = Blackfynn()
 	ts = bf.get(package) # Your package ID here
@@ -44,6 +45,7 @@ def pull_annotations(package, layer, outputPath):
 
 def str2dt_usec(s):
 	dt=DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f")
+	EPOCH = DT.datetime(1970,1,1)
 	return int((dt - EPOCH).total_seconds() * 1000000)
 
 
@@ -51,22 +53,18 @@ def annotate_from_catalog(package, ecog_catalog):
 	''' package: blackfynn package ID 
 		ecog_catalog: .csv file from Neuropace '''
 
-
-	EPOCH = DT.datetime(1970,1,1)
-
 	bf = Blackfynn()
 	ts=bf.get(package)
 
 
 	with open(ecog_catalog) as csvfile:
 		reader = csv.reader(csvfile, delimiter=',')
-
 		# Get indices of timestamp, annotation name columns, etc.
 		header=next(reader)
 		header[0]=header[0].replace(u'\ufeff', '')
 		start_local_i = header.index('Timestamp')			# string ('2015-03-1 08:31:56.969')
-		trig_UTC_i = header.index('Raw UTC Timestamp')
-		trig_local_i = header.index('Raw Local Timestamp')
+		trig_UTC_i = header.index('Raw UTC timestamp')
+		trig_local_i = header.index('Raw local timestamp')
 		annot_name_i = header.index('ECoG trigger')
 		ecog_len_i = header.index('ECoG length') 		#sec
 		pt_i = header.index('Initials')

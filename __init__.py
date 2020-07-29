@@ -1,4 +1,4 @@
-import blackfynn
-import conversion
-import scripts
+from . import bf_tools
+from . import conversion
+from . import scripts
 

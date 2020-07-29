@@ -8,12 +8,16 @@
 		{
 			"ID": "HUP1234",
 			"PDMS_ID": "1234567",
-			"Initials": "AA"
+			"Initials": "AA",
+			"bf_dataset": "N:dataset:xxxxxx-xxxx-xxxx-xxx-xxxxxxxxxxxxxx",
+			"bf_package": "N:dataset:xxxxxx-xxxx-xxxx-xxx-xxxxxxxxxxxxxx",
 		}, 
 		{
 			"ID": "HUP9876",
 			"PDMS_ID": "9876543",
-			"Initials": "BB"
+			"Initials": "BB",
+			"bf_dataset": "N:dataset:xxxxxx-xxxx-xxxx-xxx-xxxxxxxxxxxxxx",
+			"bf_package": "N:dataset:xxxxxx-xxxx-xxxx-xxx-xxxxxxxxxxxxxx",
 		}
 	]
 }
