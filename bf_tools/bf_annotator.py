@@ -5,17 +5,27 @@ import csv
 import datetime as DT
 import pdb
 
-# TODO: Test this function
-def pull_annotations(package, layer, outputPath):
+
+def pull_annotations(package, layerName, outputPath):
 
 	bf = Blackfynn()
-	ts=bf.get(package)
-	layer = ts.get_layer(layerName);
+	ts= bf.get(package)
 
+	pdb.set_trace();
+
+	try: 
+		layer = ts.get_layer(layerName);
+	except:
+		print('Could not find layer %s'%layerName)
+		return
+
+	print(outputPath+ layerName +'_annots.mat')
 	# Make sure annotations are correct. 
 	anns = [(a.start, a.end) for a in layer.annotations()];
 	desc = [(a.description) for a in layer.annotations()];
 	sio.savemat(outputPath+ layerName +'_annots.mat', {'annots':anns, 'descriptions': desc})
+
+	
 
 
 # TODO: test this function
