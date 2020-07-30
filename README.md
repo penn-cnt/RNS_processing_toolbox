@@ -1,4 +1,4 @@
-# RNS_Data_Handling
+# RNS processing toolbox
 
 This repository contains code for processing and analyzing data from the responsive neurostimulation (RNS) device by NeuroPace. 
 
