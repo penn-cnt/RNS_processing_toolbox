@@ -51,7 +51,9 @@ for i_pt in range(0,npts):
    Ecog_Events['Event Start idx'] = [row[0] for row in eventIdx]; 
    Ecog_Events['Event End idx'] = [row[1] for row in eventIdx];
    
-   np.savez_compressed(savepath, AllData=AllData, AllTime=AllTime, eventIdx=eventIdx, Ecog_Events=Ecog_Events)
+   # Save updated csv and all events
+   Ecog_Events.to_csv(savepath+'_Ecog.csv', index=False)
+   np.savez_compressed(savepath, AllData=AllData, AllTime=AllTime, eventIdx=eventIdx)
 
    print('complete')
    

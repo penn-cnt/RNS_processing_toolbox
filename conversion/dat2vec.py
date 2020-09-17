@@ -9,6 +9,7 @@ import sys
 import os
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 def dat2vector(dataFolder, catalog_csv):
     
@@ -72,5 +73,48 @@ def dat2vector(dataFolder, catalog_csv):
 
 
     return AllData, AllTime_UTC, eventIdx
+
+def findStim(AllData, AllTime, Min=15, Channel=1):
     
+    #Check orientation of AllData
+    if AllData.shape[0] != 4:
+        if AllData.shape[1] !=4:
+            sys.exit('Error: AllData does not contain 4 channels')
+        AllData = AllData.T
     
+    # Find Stimulation Triggers
+
+    #Find Slope of Data   
+    Slope= np.diff(AllData)/4000;
+    Slope[1] = np.where(AllData[Channel][1:]<200, 1, Slope[1])
+    Slope[1] = np.where(AllData[Channel][1:]>800, 1, Slope[1])
+    
+    #Find Start and End Locations of Regions with Zero Slope 
+    ZeroSlopeInflections = np.diff(np.where(Slope[1]==0, 1, 0));
+    ZeroSlopeStarts = np.argwhere(ZeroSlopeInflections==1).flatten()+1;
+    ZeroSlopeEnds = np.argwhere(ZeroSlopeInflections==-1).flatten()+1;
+    
+    #Find Indices of Stimulation Start and End Points
+    StimStartStopIndex= np.vstack(
+            (ZeroSlopeStarts[np.argwhere(ZeroSlopeEnds-ZeroSlopeStarts>=Min).flatten()],
+                             ZeroSlopeEnds[np.argwhere(ZeroSlopeEnds-ZeroSlopeStarts>=Min).flatten()]))
+
+    #Find Stim Start and End Times
+    StimStartStopTimes=np.vstack((AllTime[StimStartStopIndex[0]], AllTime[StimStartStopIndex[1]]))
+
+    stats = dict(); 
+    
+    #Find Stimulation Lengths
+    stats['StimLengths'] = np.diff(StimStartStopIndex, axis=0).flatten()
+    
+    #Find Max Stim Length
+    stats['MaxStimLength'] = max(stats['StimLengths']);
+    stats['MaxStimIndex'] = np.argmax(stats['StimLengths']);
+    
+    #Find Min Stim Length
+    stats['MinStimLength'] = min(stats['StimLengths']);
+    stats['MinStimIndex'] = np.argmin(stats['StimLengths']);    
+    
+    return StimStartStopIndex, StimStartStopTimes, stats
+
+ 
