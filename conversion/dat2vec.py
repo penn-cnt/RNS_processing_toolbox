@@ -10,7 +10,6 @@ import os
 import numpy as np
 import pandas as pd
 
-
 def dat2vector(dataFolder, catalog_csv):
     
     Folder = glob.glob(os.path.join(dataFolder, "*.dat"));
@@ -33,8 +32,8 @@ def dat2vector(dataFolder, catalog_csv):
     ctr = 0
     
     AllTime_UTC = []
-    AllData = np.empty((4,0))
-    eventIdx = np.empty((0,2))
+    AllData = []
+    eventIdx = []
     
     for i_file in range(0,NumberOfFiles):
         
@@ -57,14 +56,19 @@ def dat2vector(dataFolder, catalog_csv):
               
         
         dlen = fdata.shape[1]
-        AllData= np.append(AllData, fdata, axis =1)
+        AllData.append(fdata)
         
         t_vec = np.arange(dlen)/fs
-        AllTime_UTC= np.append(AllTime_UTC, startTime_rawUTC[i_file]+t_vec*10**6)
+        AllTime_UTC.append(startTime_rawUTC[i_file]+t_vec*10**6)
+        #AllTime_UTC= np.append(AllTime_UTC, startTime_rawUTC[i_file]+t_vec*10**6)
         
-        eventIdx= np.vstack((eventIdx, ctr + np.array([0,dlen-1])))
+        eventIdx.append(ctr + np.array([0,dlen-1]))
         ctr = ctr + dlen; 
-    
+
+    AllTime_UTC = np.concatenate(AllTime_UTC)
+    AllData = np.concatenate(AllData, axis = 1)
+    eventIdx = np.array(eventIdx)
+
     return AllData, AllTime_UTC, eventIdx
     
     

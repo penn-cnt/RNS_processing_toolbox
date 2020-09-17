@@ -15,8 +15,8 @@ Created on Wed Sep 16 16:43:22 2020
 
 import json
 import os
-import scipy
-from conversion import dat2vector 
+import numpy as np
+from conversion import dat2vec
 
 
 with open('./config.JSON') as f:
@@ -24,7 +24,7 @@ with open('./config.JSON') as f:
     
 npts = len(config['patients'])
 
-for i_pt in range(0,npts):
+for i_pt in range(7,8):
     
    prefix = '%s_%s_%s'%(config['institution'], 
                         config['patients'][i_pt]['Initials'],
@@ -33,12 +33,21 @@ for i_pt in range(0,npts):
    dataFolder = os.path.join(config['paths']['DAT_Folder'], prefix + ' EXTERNAL #PHI', prefix + ' Data EXTERNAL #PHI');
    catalog_csv= os.path.join(config['paths']['DAT_Folder'], prefix+ ' EXTERNAL #PHI', prefix+ '_ECoG_Catalog.csv');
                              
-   savepath = os.path.join(config['paths']['MAT_Folder'], '%s.mat'%config['patients'][i_pt]['RNS_ID']);
+   savepath = os.path.join(config['paths']['MAT_Folder'], '%s'%config['patients'][i_pt]['RNS_ID']);
    
    # Get converted Data and Time vectors 
-   [AllData, AllTime, eventIdx]= dat2vector(dataFolder, catalog_csv);
+   [AllData, AllTime, eventIdx]= dat2vec.dat2vector(dataFolder, catalog_csv);
+
+   #Add in additional metadata
+   Ecog_Events = pd.read_csv(catalog_csv);
+   Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Patient ID', 'Device ID'])
+   Ecog_Events['Event Start idx'] = [row[0] for row in eventIdx]; 
+   Ecog_Events['Event End idx'] = [row[1] for row in eventIdx];
    
-   scipy.io.savemat(saveas, {"AllData":AllData, "AllTime": AllTime, "eventIdx": eventIdx})
+   np.savez(savepath, AllData=AllData, AllTime=AllTime, eventIdx=eventIdx,
+            Ecog_Events=Ecog_Events)
+   
+
    
    
     
