@@ -40,8 +40,6 @@ def dat2vector(dataFolder, catalog_csv):
         NumChannels = csv_file['Waveform count'][i_file]
         fname = csv_file['Filename'][i_file]
         
-        print(i_file)
-        
         with open(os.path.join(dataFolder, fname), 'rb') as fid:
             fdata = np.fromfile(fid, np.int16).reshape((-1, NumChannels)).T
            
@@ -63,11 +61,15 @@ def dat2vector(dataFolder, catalog_csv):
         #AllTime_UTC= np.append(AllTime_UTC, startTime_rawUTC[i_file]+t_vec*10**6)
         
         eventIdx.append(ctr + np.array([0,dlen-1]))
-        ctr = ctr + dlen; 
+        ctr = ctr + dlen
 
     AllTime_UTC = np.concatenate(AllTime_UTC)
+    AllTime_UTC = AllTime_UTC.astype('uint64')
     AllData = np.concatenate(AllData, axis = 1)
+    AllData = AllData.astype('uint16')
     eventIdx = np.array(eventIdx)
+    eventIdx = eventIdx.astype('uint32')
+
 
     return AllData, AllTime_UTC, eventIdx
     

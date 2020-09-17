@@ -16,19 +16,26 @@ Created on Wed Sep 16 16:43:22 2020
 import json
 import os
 import numpy as np
+import pandas as pd
 from conversion import dat2vec
 
 
 with open('./config.JSON') as f:
     config= json.load(f); 
+
+
+if not os.path.exists(config['paths']['MAT_Folder']):
+   os.makedirs(config['paths']['MAT_Folder'])
     
 npts = len(config['patients'])
 
-for i_pt in range(7,8):
+for i_pt in range(0,npts):
     
    prefix = '%s_%s_%s'%(config['institution'], 
                         config['patients'][i_pt]['Initials'],
-                        config['patients'][i_pt]['PDMS_ID']); 
+                        config['patients'][i_pt]['PDMS_ID']);
+
+   print('loading data for patient %s ...'%prefix) 
   
    dataFolder = os.path.join(config['paths']['DAT_Folder'], prefix + ' EXTERNAL #PHI', prefix + ' Data EXTERNAL #PHI');
    catalog_csv= os.path.join(config['paths']['DAT_Folder'], prefix+ ' EXTERNAL #PHI', prefix+ '_ECoG_Catalog.csv');
@@ -44,8 +51,9 @@ for i_pt in range(7,8):
    Ecog_Events['Event Start idx'] = [row[0] for row in eventIdx]; 
    Ecog_Events['Event End idx'] = [row[1] for row in eventIdx];
    
-   np.savez(savepath, AllData=AllData, AllTime=AllTime, eventIdx=eventIdx,
-            Ecog_Events=Ecog_Events)
+   np.savez_compressed(savepath, AllData=AllData, AllTime=AllTime, eventIdx=eventIdx, Ecog_Events=Ecog_Events)
+
+   print('complete')
    
 
    
