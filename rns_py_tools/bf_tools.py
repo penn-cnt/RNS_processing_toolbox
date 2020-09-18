@@ -1,9 +1,25 @@
+"""
+Blackfynn Interface Tools
+(RNS Processing Toolbox)
+
+Functions in this file: 
+    pull_annotations(package, layerName, outputPath)
+    annotate_UTC_from_mat(package, newLayer, annot_mat_file)
+    annotate_from_catalog(package, ecog_catalog)
+    uploadMef(dataset, package, mefFolder)
+    uploadNewDat(dataset, tsName, datFolder)
+    
+"""
+
 import scipy.io as sio
 from blackfynn import Blackfynn
+from rns_py_tools import conversion as cnv
 import numpy as np
 import csv
 import datetime as DT
 import pdb
+#import TimeSeries 
+import os
 
 
 def pull_annotations(package, layerName, outputPath):
@@ -26,7 +42,6 @@ def pull_annotations(package, layerName, outputPath):
 	sio.savemat(outputPath+ layerName +'_annots.mat', {'annots':anns, 'descriptions': desc})
 
 	
-
 
 # TODO: test this function
 def annotate_UTC_from_mat(package, newLayer, annot_mat_file):
@@ -53,12 +68,6 @@ def annotate_UTC_from_mat(package, newLayer, annot_mat_file):
 	    print(count)
 
 
-def str2dt_usec(s):
-	dt=DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f")
-	EPOCH = DT.datetime(1970,1,1)
-	return int((dt - EPOCH).total_seconds() * 1000000)
-
-
 def annotate_from_catalog(package, ecog_catalog):
 	''' package: blackfynn package ID 
 		ecog_catalog: .csv file from Neuropace '''
@@ -83,8 +92,8 @@ def annotate_from_catalog(package, ecog_catalog):
 		aCtrs=[]
 		for row in reader:
 			# Parse datetimes into usec, shift timezone to GMT
-			tz_offset=str2dt_usec(row[trig_UTC_i])-str2dt_usec(row[trig_local_i])
-			start_local=str2dt_usec(row[start_local_i])
+			tz_offset= cnv.str2dt_usec(row[trig_UTC_i])-cnv.str2dt_usec(row[trig_local_i])
+			start_local= cnv.str2dt_usec(row[start_local_i])
 
 			starttime=start_local+tz_offset
 			endtime=float(row[ecog_len_i])*1000000+starttime
@@ -102,5 +111,42 @@ def annotate_from_catalog(package, ecog_catalog):
 
 			print(annotName, aNames, aCtrs)
 
+#TODO, finish 
+def uploadMef(dataset, package, mefFolder):
+    ''' Uploads mef files to package. If package is "None", 
+    then a new package is created within the dataset '''
+
+    bf = Blackfynn()
+    ds = bf.get_dataset(dataset)
+
+	# Check if single mef file, otherwise upload folder
+
+    if package == None:	
+		# Create new package
+        ds.uplaod(mefFolder(1))
+
+    for mef_file in mefFolder:
+        package.append_files(mef_file)
+
+
+#TODO, finish:
+def uploadNewDat(dataset, tsName, datFolder):
+	''' Uploads mef files to package. If package is "None", 
+		then a new package is created within the dataset '''
+
+	bf = Blackfynn()
+	ds = bf.get_dataset(dataset)
+	ts = TimeSeries(tsName)
+	ds.add(ts)
+
+	if os.path.isdir(datFolder):
+		files = datFolder
+	elif os.path.isfile(path):  
+		files = datFolder
+
+	# Check if single mef file, otherwise upload folder
+	if package == None:	
+		ds.set_ready()
+		ds.upload(datFolder)
 
 

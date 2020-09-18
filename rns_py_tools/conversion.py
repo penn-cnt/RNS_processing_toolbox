@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
 """
-Spyder Editor
+Conversion Tools
+(RNS Processing Toolbox)
 
-This is a temporary script file.
+Functions in this file: 
+    dat2vector(dataFolder, catalog_csv)
+    str2dt_usec(s)
+    posix2dt_UTC(psx)
+
 """
 import glob
 import sys
 import os
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import datetime as DT
 
 def dat2vector(dataFolder, catalog_csv):
     
@@ -74,47 +79,13 @@ def dat2vector(dataFolder, catalog_csv):
 
     return AllData, AllTime_UTC, eventIdx
 
-def findStim(AllData, AllTime, Min=15, Channel=1):
-    
-    #Check orientation of AllData
-    if AllData.shape[0] != 4:
-        if AllData.shape[1] !=4:
-            sys.exit('Error: AllData does not contain 4 channels')
-        AllData = AllData.T
-    
-    # Find Stimulation Triggers
+def str2dt_usec(s):
+	dt=DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f")
+	EPOCH = DT.datetime(1970,1,1)
+	return int((dt - EPOCH).total_seconds() * 1000000)
 
-    #Find Slope of Data   
-    Slope= np.diff(AllData)/4000;
-    Slope[1] = np.where(AllData[Channel][1:]<200, 1, Slope[1])
-    Slope[1] = np.where(AllData[Channel][1:]>800, 1, Slope[1])
-    
-    #Find Start and End Locations of Regions with Zero Slope 
-    ZeroSlopeInflections = np.diff(np.where(Slope[1]==0, 1, 0));
-    ZeroSlopeStarts = np.argwhere(ZeroSlopeInflections==1).flatten()+1;
-    ZeroSlopeEnds = np.argwhere(ZeroSlopeInflections==-1).flatten()+1;
-    
-    #Find Indices of Stimulation Start and End Points
-    StimStartStopIndex= np.vstack(
-            (ZeroSlopeStarts[np.argwhere(ZeroSlopeEnds-ZeroSlopeStarts>=Min).flatten()],
-                             ZeroSlopeEnds[np.argwhere(ZeroSlopeEnds-ZeroSlopeStarts>=Min).flatten()]))
-
-    #Find Stim Start and End Times
-    StimStartStopTimes=np.vstack((AllTime[StimStartStopIndex[0]], AllTime[StimStartStopIndex[1]]))
-
-    stats = dict(); 
-    
-    #Find Stimulation Lengths
-    stats['StimLengths'] = np.diff(StimStartStopIndex, axis=0).flatten()
-    
-    #Find Max Stim Length
-    stats['MaxStimLength'] = max(stats['StimLengths']);
-    stats['MaxStimIndex'] = np.argmax(stats['StimLengths']);
-    
-    #Find Min Stim Length
-    stats['MinStimLength'] = min(stats['StimLengths']);
-    stats['MinStimIndex'] = np.argmin(stats['StimLengths']);    
-    
-    return StimStartStopIndex, StimStartStopTimes, stats
-
+def posix2dt_UTC(psx):
+    psx = psx*10**-6
+    utc= [DT.datetime.utcfromtimestamp(x) for x in psx]
+    return utc
  

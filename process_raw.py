@@ -17,7 +17,8 @@ import json
 import os
 import numpy as np
 import pandas as pd
-from conversion import dat2vec
+from rns_py_tools import conversion as cnv
+from rns_py_tools import ecog, visualize
 
 
 with open('./config.JSON') as f:
@@ -29,34 +30,38 @@ if not os.path.exists(config['paths']['MAT_Folder']):
     
 npts = len(config['patients'])
 
-for i_pt in range(0,npts):
+def loadPatientDataFromFiles():
+
+    for i_pt in range(0,npts):
+        
+       prefix = '%s_%s_%s'%(config['institution'], 
+                            config['patients'][i_pt]['Initials'],
+                            config['patients'][i_pt]['PDMS_ID']);
     
-   prefix = '%s_%s_%s'%(config['institution'], 
-                        config['patients'][i_pt]['Initials'],
-                        config['patients'][i_pt]['PDMS_ID']);
+       print('loading data for patient %s ...'%prefix) 
+      
+       dataFolder = os.path.join(config['paths']['DAT_Folder'], prefix + ' EXTERNAL #PHI', prefix + ' Data EXTERNAL #PHI');
+       catalog_csv= os.path.join(config['paths']['DAT_Folder'], prefix+ ' EXTERNAL #PHI', prefix+ '_ECoG_Catalog.csv');
+                                 
+       savepath = os.path.join(config['paths']['MAT_Folder'], '%s'%config['patients'][i_pt]['RNS_ID']);
+       
+       # Get converted Data and Time vectors 
+       [AllData, AllTime, eventIdx]= cnv.dat2vector(dataFolder, catalog_csv);
+    
+       #Add in additional metadata
+       Ecog_Events = pd.read_csv(catalog_csv);
+       Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Patient ID', 'Device ID'])
+       Ecog_Events['Event Start idx'] = [row[0] for row in eventIdx]; 
+       Ecog_Events['Event End idx'] = [row[1] for row in eventIdx];
+       
+       # Save updated csv and all events
+       Ecog_Events.to_csv(savepath+'_Ecog.csv', index=False)
+       np.savez_compressed(savepath, AllData=AllData, AllTime=AllTime, eventIdx=eventIdx)
+    
+       print('complete')
+       
+       
 
-   print('loading data for patient %s ...'%prefix) 
-  
-   dataFolder = os.path.join(config['paths']['DAT_Folder'], prefix + ' EXTERNAL #PHI', prefix + ' Data EXTERNAL #PHI');
-   catalog_csv= os.path.join(config['paths']['DAT_Folder'], prefix+ ' EXTERNAL #PHI', prefix+ '_ECoG_Catalog.csv');
-                             
-   savepath = os.path.join(config['paths']['MAT_Folder'], '%s'%config['patients'][i_pt]['RNS_ID']);
-   
-   # Get converted Data and Time vectors 
-   [AllData, AllTime, eventIdx]= dat2vec.dat2vector(dataFolder, catalog_csv);
-
-   #Add in additional metadata
-   Ecog_Events = pd.read_csv(catalog_csv);
-   Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Patient ID', 'Device ID'])
-   Ecog_Events['Event Start idx'] = [row[0] for row in eventIdx]; 
-   Ecog_Events['Event End idx'] = [row[1] for row in eventIdx];
-   
-   # Save updated csv and all events
-   Ecog_Events.to_csv(savepath+'_Ecog.csv', index=False)
-   np.savez_compressed(savepath, AllData=AllData, AllTime=AllTime, eventIdx=eventIdx)
-
-   print('complete')
-   
 
    
    
