@@ -28,12 +28,16 @@ def vis_event(AllData, AllTime, Ecog_Events, datapoints):
     for i in range(0,dlen):
         idx= ievent[i]
         dt= cnv.posix2dt_UTC(AllTime[start[idx]:end[idx]+1])
+        dat = AllData[:,start[idx]:end[idx]+1].T+np.arange(4)*100
         
+        ymax = max([i for lis in dat for i in lis])
+        ymin = min([i for lis in dat for i in lis])
         
-        ax[i+1].plot(dt, AllData[:,start[idx]:end[idx]+1].T+np.arange(4)*100)
-        ax[i+1].vlines(cnv.posix2dt_UTC[idx])
-        ax[i+1].xticks(rotation=45)
-        ax[i+1].title('%s Event'%Ecog_Events['ECoG trigger'][idx])
+        ax[i].plot(dt, dat)
+        ax[i].vlines(cnv.posix2dt_UTC(AllTime[datapoints[i]]),ymin, ymax)
+        plt.sca(ax[i])
+        plt.xticks(rotation=20)
+        plt.title("%s Event"%(Ecog_Events['ECoG trigger'][idx]))
     
     return ax
     
