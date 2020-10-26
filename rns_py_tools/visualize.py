@@ -14,7 +14,11 @@ from rns_py_tools import conversion as cnv
 
 def vis_event(AllData, AllTime, Ecog_Events, datapoints):
     
-    dlen = len(datapoints)
+    
+    try:
+        dlen = len(datapoints)
+    except TypeError:
+        dlen = 1
     
     # If datapoints are indices
     start= Ecog_Events['Event Start idx']
@@ -22,8 +26,8 @@ def vis_event(AllData, AllTime, Ecog_Events, datapoints):
     
     ievent = [np.argmax(np.where((start-datapoints[i])<0)) for i in range(0,dlen)]
     
-    fig, ax= plt.subplots(dlen,1)
-    fig.subplots_adjust(hspace=0.5)    
+    fig, ax= plt.subplots(dlen, 1, squeeze=False)
+    fig.subplots_adjust(hspace= 0.5)    
     
     for i in range(0,dlen):
         idx= ievent[i]
@@ -33,9 +37,9 @@ def vis_event(AllData, AllTime, Ecog_Events, datapoints):
         ymax = max([i for lis in dat for i in lis])
         ymin = min([i for lis in dat for i in lis])
         
-        ax[i].plot(dt, dat)
-        ax[i].vlines(cnv.posix2dt_UTC(AllTime[datapoints[i]]),ymin, ymax)
-        plt.sca(ax[i])
+        ax[i][0].plot(dt, dat)
+        ax[i][0].vlines(cnv.posix2dt_UTC(AllTime[datapoints[i]]),ymin, ymax)
+        plt.sca(ax[i][0])
         plt.xticks(rotation=20)
         plt.title("%s Event"%(Ecog_Events['ECoG trigger'][idx]))
     
