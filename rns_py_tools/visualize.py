@@ -13,7 +13,17 @@ import numpy as np
 from rns_py_tools import conversion as cnv
 
 def vis_event(AllData, AllTime, Ecog_Events, datapoints):
-    
+    '''
+    Args:
+        AllData (npArray): patient's AllData array
+        AllTime (npArray): patient's AllTime array
+        Ecog_Events (table): patient's Ecog_Events table
+        datapoints (list): vector of AllTime indices to plot
+
+    Returns:
+        ax (plot.axis): subplot including one plot of the EcoG event containing 
+        each datapoint, respectively. 
+    '''
     
     try:
         dlen = len(datapoints)

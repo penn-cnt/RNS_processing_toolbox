@@ -1,4 +1,4 @@
-function vis_event(AllData, AllTime, Ecog_Events, datapoints)
+function vis_event(AllData, AllTime, Ecog_Events, datapoints, options)
 % Display event clips containint data points in data points vector. 
 
 % Example: 
@@ -15,27 +15,34 @@ function vis_event(AllData, AllTime, Ecog_Events, datapoints)
 % returns a subplot of the data clip surrounding each datapoint. The datapoint
 % and trigger point is marked
 
+arguments
+    AllData double
+    AllTime double
+    Ecog_Events table
+    datapoints double
+    options.Spacing (1,1) double = 100
+end
 
 datapoints = datapoints(:);
 ld = length(datapoints); 
 
 
-StartIndices = Ecog_Events.eventStartIdx;
-EndIndices = Ecog_Events.eventEndIdx;
+StartIndices = Ecog_Events.EventStartIdx;
+EndIndices = Ecog_Events.EventEndIdx;
 
 [~, imin] = min(abs(StartIndices - datapoints'));
 
-start_ind = StartIndices(imin);
-end_ind = EndIndices(imin);
-events = Ecog_Events.eventType;
+start_ind = StartIndices(imin)+1;
+end_ind = EndIndices(imin)+1;
+events = Ecog_Events.ECoGTrigger;
 
 
 figure(1); clf; hold on
 for i_d = 1:ld
     subplot(ld,1,i_d); hold on;
     plot(datetime(AllTime(start_ind(i_d):end_ind(i_d))/10^6, 'ConvertFrom', 'Posixtime'),...
-    AllData(:,start_ind(i_d):end_ind(i_d))'+[1:4]*100) 
-    vline(datapoints(i_d)); 
+    AllData(:,start_ind(i_d):end_ind(i_d))'+[1:4]*options.Spacing) 
+    vline(datetime(AllTime(datapoints(i_d))/10^6, 'ConvertFrom', 'Posixtime')); 
     title(sprintf('Event: %s', events{i_d}))
 end
 
