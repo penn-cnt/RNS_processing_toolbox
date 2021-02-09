@@ -179,17 +179,16 @@ def getIntersectingIntervals(ivals1, ivals2):
 
 def getWindowIdx(stIdx, AllTime, winDur, offsetDur):
     '''
-
     Parameters
     ----------
     stIdx : vector of starting indices from which to calculate the window
     AllTime : Time vector
     winDur : positive int, duration of window in seconds
-    offsetDur : signed int: offset (in seconds) at which to start counting the window
+    offsetDur : signed int, offset (in seconds) at which to start counting the window
 
     Returns
     -------
-    windowIdx : [N x 2] matrix of window indices
+    windowIdx : [N x 2] matrix of window start/stop indices
 
     '''
     offset = offsetDur * 10**6
@@ -199,12 +198,14 @@ def getWindowIdx(stIdx, AllTime, winDur, offsetDur):
     end_times = AllTime[stIdx] + offset + wind
     
     #Map start and end times to closest index 
-    start_idx=ecog._mapTimeToIdx(AllTime, start_times)
-    end_idx=ecog._mapTimeToIdx(AllTime, end_times)
+    start_idx= _mapTimeToIdx(AllTime, start_times)
+    end_idx= _mapTimeToIdx(AllTime, end_times)
     
     #Throw out windows that may straddle multiple clips
     
     AllTime[end_idx]-AllTime[start_idx]
+    
+    windowIdx=[start_idx, end_idx]
     
     return windowIdx
 
@@ -226,26 +227,27 @@ def _mapTimeToIdx(AllTime, timeVector):
     
     #t_idx = [abs(AllTime-time).argmin() for time in timeVector]
     
-    diff= np.inf
-    j = 0 #pointer to sorted timeVector
+    # NOTE, the assumption that AllTime is sorted cannot be made!
+    # diff= np.inf
+    # jj = 0 #pointer to sorted timeVector
     
-    t_idx = []
+    # t_idx = []
     
-    for i in range(0,len(AllTime)-1):
-        d = abs(AllTime[i+1]-timeVector[j]) 
-        #print(d)
-        if d >= diff:
-            while d >= diff:
-                #print(i)
-                t_idx.append(i)
-                j = j + 1
-                if j >= len(timeVector):
-                    return t_idx
-                diff = abs(AllTime[i]-timeVector[j])
-                d = abs(AllTime[i+1]-timeVector[j])
-            diff = d
-        else: 
-            diff = d
+    # for i in range(0,len(AllTime)-1):
+    #     dd = abs(AllTime[i+1]-timeVector[jj]) 
+    #     #print(dd)
+    #     if dd >= diff:
+    #         while dd >= diff:
+    #             print(i)
+    #             t_idx.append(i)
+    #             jj = jj + 1
+    #             if jj >= len(timeVector):
+    #                 return t_idx
+    #             diff = abs(AllTime[i]-timeVector[jj])
+    #             dd = abs(AllTime[i+1]-timeVector[jj])
+    #         diff = dd
+    #     else: 
+    #         diff = dd
               
     return t_idx
 

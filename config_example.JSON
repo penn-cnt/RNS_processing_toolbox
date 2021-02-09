@@ -1,7 +1,7 @@
 {
 	"paths": {
-		"DAT_Folder": "/Path/to/data/folders/UPenn IRB xxxxxx - RNS System Data EXTERNAL #PHI",
-		"MAT_Folder": "/Path/to/MAT/file/folder/RNS_MAT_Files"
+		"RNS_RAW_Folder": "/Path/to/data/folders/UPenn IRB xxxxxx - RNS System Data EXTERNAL #PHI",
+		"RNS_DATA_Folder": "/Path/to/MAT/file/folder/RNS_parsed_DATA_Files"
 	},
 	"institution": "UPenn",
 	"patients": [

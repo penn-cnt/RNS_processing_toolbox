@@ -91,3 +91,10 @@ def posix2dt_UTC(psx):
     utc= [DT.datetime.utcfromtimestamp(x) for x in psx]
     return utc
  
+def histPath(ptnum, config):
+    prefix = '%s_%s_%s'%(config['institution'], 
+                         config['patients'][ptnum]['Initials'],
+                         config['patients'][ptnum]['PDMS_ID']);
+  
+    dataFolder = os.path.join(config['paths']['DAT_Folder'], prefix + ' EXTERNAL #PHI', prefix + ' Histograms EXTERNAL #PHI', prefix + '_Histogram_Hourly.csv')
+    return dataFolder

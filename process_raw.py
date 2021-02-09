@@ -18,15 +18,14 @@ import os
 import numpy as np
 import pandas as pd
 from rns_py_tools import conversion as cnv
-from rns_py_tools import ecog, visualize
 
 
 with open('./config.JSON') as f:
     config= json.load(f); 
 
 
-if not os.path.exists(config['paths']['MAT_Folder']):
-   os.makedirs(config['paths']['MAT_Folder'])
+if not os.path.exists(config['paths']['RNS_DATA_Folder']):
+   os.makedirs(config['paths']['RNS_DATA_Folder'])
     
 npts = len(config['patients'])
 
@@ -40,10 +39,10 @@ def loadPatientDataFromFiles():
     
        print('loading data for patient %s ...'%prefix) 
       
-       dataFolder = os.path.join(config['paths']['DAT_Folder'], prefix + ' EXTERNAL #PHI', prefix + ' Data EXTERNAL #PHI');
-       catalog_csv= os.path.join(config['paths']['DAT_Folder'], prefix+ ' EXTERNAL #PHI', prefix+ '_ECoG_Catalog.csv');
+       dataFolder = os.path.join(config['paths']['RNS_RAW_Folder'], prefix + ' EXTERNAL #PHI', prefix + ' Data EXTERNAL #PHI');
+       catalog_csv= os.path.join(config['paths']['RNS_RAW_Folder'], prefix+ ' EXTERNAL #PHI', prefix+ '_ECoG_Catalog.csv');
                                  
-       savepath = os.path.join(config['paths']['MAT_Folder'], '%s'%config['patients'][i_pt]['RNS_ID']);
+       savepath = os.path.join(config['paths']['RNS_DATA_Folder'], '%s'%config['patients'][i_pt]['RNS_ID']);
        
        # Get converted Data and Time vectors 
        [AllData, AllTime, eventIdx]= cnv.dat2vector(dataFolder, catalog_csv);
@@ -60,8 +59,8 @@ def loadPatientDataFromFiles():
     
        print('complete')
        
-       
-
+ 
+loadPatientDataFromFiles()       
 
    
    
