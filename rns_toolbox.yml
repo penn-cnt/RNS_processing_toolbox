@@ -1,0 +1,59 @@
+name: envpy37
+channels:
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - blas=1.0=mkl
+  - ca-certificates=2020.7.22=0
+  - certifi=2020.6.20=py37_0
+  - intel-openmp=2020.1=217
+  - ld_impl_linux-64=2.33.1=h53a641e_7
+  - libedit=3.1.20191231=h14c3975_1
+  - libffi=3.3=he6710b0_2
+  - libgcc-ng=9.1.0=hdf63c60_0
+  - libgfortran-ng=7.3.0=hdf63c60_0
+  - libstdcxx-ng=9.1.0=hdf63c60_0
+  - mkl=2020.1=217
+  - mkl-service=2.3.0=py37he904b0f_0
+  - mkl_fft=1.1.0=py37h23d657b_0
+  - mkl_random=1.1.1=py37h0573a6f_0
+  - ncurses=6.2=he6710b0_1
+  - numpy=1.18.5=py37ha1c710e_0
+  - numpy-base=1.18.5=py37hde5b4d6_0
+  - openssl=1.1.1g=h7b6447c_0
+  - pandas=1.1.1=py37he6710b0_0
+  - pip=20.1.1=py37_1
+  - python=3.7.7=hcff3b4d_5
+  - python-dateutil=2.8.1=py_0
+  - pytz=2020.1=py_0
+  - readline=8.0=h7b6447c_0
+  - scipy=1.5.0=py37h0b6359f_0
+  - setuptools=49.2.0=py37_0
+  - six=1.15.0=py_0
+  - sqlite=3.32.3=h62c20be_0
+  - tk=8.6.10=hbc83047_0
+  - wheel=0.34.2=py37_0
+  - xz=5.2.5=h7b6447c_0
+  - zlib=1.2.11=h7b6447c_3
+  - pip:
+    - blackfynn==4.0.0
+    - boto3==1.14.30
+    - botocore==1.17.30
+    - chardet==3.0.4
+    - configparser==5.0.0
+    - deprecated==1.2.10
+    - docopt==0.6.2
+    - docutils==0.15.2
+    - future==0.18.2
+    - idna==2.10
+    - jmespath==0.10.0
+    - protobuf==3.12.2
+    - psutil==5.7.2
+    - requests==2.24.0
+    - s3transfer==0.3.3
+    - semver==2.10.2
+    - urllib3==1.25.10
+    - websocket-client==0.57.0
+    - wrapt==1.12.1
+prefix: /home/bscheid/anaconda3/envs/envpy37
+
