@@ -21,7 +21,7 @@ def uploadPatientAnnots(ptID_list):
 	for i_pt in ptID_list:
 		prefix =  "_".join([inst, ptList[i_pt]['Initials'], ptList[i_pt]['PDMS_ID']])
 		package = ptList[i_pt]['bf_package']
-		ecog_catalog = os.path.join(paths['DAT_Folder'], prefix +' EXTERNAL #PHI', '_'.join([prefix, 'ECoG_Catalog.csv']))
+		ecog_catalog = os.path.join(paths['RNS_RAW_Folder'], prefix +' EXTERNAL #PHI', '_'.join([prefix, 'ECoG_Catalog.csv']))
 
 		print('Uploading annotations for patient %s'%ptList[i_pt]['Initials'])
 
@@ -41,7 +41,7 @@ def pullPatientAnnots(ptID_list, layerName):
 
 
 	for i_pt in ptID_list:
-		outputPath = os.path.join(paths['MAT_Folder'], ptList[i_pt]['RNS_ID'])
+		outputPath = os.path.join(paths['RNS_DATA_Folder'], ptList[i_pt]['RNS_ID'])
 		package = ptList[i_pt]['bf_package']
 		bf_annotator.pull_annotations(package, layerName, outputPath)
 		

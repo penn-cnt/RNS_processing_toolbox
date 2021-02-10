@@ -11,7 +11,7 @@ Functions in this file:
 import sys
 import numpy as np
 
-def findStim(AllData, AllTime, Min=15, Channel=1):
+def findStims(AllData, AllTime, Min=15, Channel=1):
   ''' Get time points and indices of all stimulation events in AllData. 
     Inputs: 
       AllData- vector of data in microseconds
@@ -44,12 +44,12 @@ def findStim(AllData, AllTime, Min=15, Channel=1):
   ZeroSlopeEnds = np.argwhere(ZeroSlopeInflections==-1).flatten()+1;
   
   #Find Indices of Stimulation Start and End Points
-  StimStartStopIndex= np.vstack(
+  StimStartStopIndex = np.vstack(
           (ZeroSlopeStarts[np.argwhere(ZeroSlopeEnds-ZeroSlopeStarts>=Min).flatten()],
                            ZeroSlopeEnds[np.argwhere(ZeroSlopeEnds-ZeroSlopeStarts>=Min).flatten()]))
   
   #Find Stim Start and End Times
-  StimStartStopTimes=np.vstack((AllTime[StimStartStopIndex[0]], AllTime[StimStartStopIndex[1]]))
+  StimStartStopTimes = np.vstack((AllTime[StimStartStopIndex[0]], AllTime[StimStartStopIndex[1]]))
   
   stats = dict(); 
   
@@ -64,7 +64,7 @@ def findStim(AllData, AllTime, Min=15, Channel=1):
   stats['MinStimLength'] = min(stats['StimLengths']);
   stats['MinStimIndex'] = np.argmin(stats['StimLengths']);    
   
-  return StimStartStopIndex, StimStartStopTimes, stats
+  return StimStartStopIndex.T, StimStartStopTimes.T, stats
 
 
 def getStimGroups(StimStartStopIndex, StimStartStopTimes, maxInterval=90):
@@ -81,12 +81,12 @@ def getStimGroups(StimStartStopIndex, StimStartStopTimes, maxInterval=90):
       stimGroups = getStimGroups(stim_times)
     '''
       
-    assert StimStartStopTimes.shape[0]==2, "StimStartStopTimes should be 2xN"
-    assert StimStartStopIndex.shape[0]==2, "StimStartStopIndex should be 2xN"
+    assert StimStartStopTimes.shape[1]==2, "StimStartStopTimes should be Nx2"
+    assert StimStartStopIndex.shape[1]==2, "StimStartStopIndex should be Nx2"
     
     mxInt = maxInterval * 10**6        #convert to usec
     
-    N = StimStartStopTimes.shape[1]
+    N = StimStartStopTimes.shape[0]
   
     stim_idx = 0
     n_grp = 1
@@ -97,14 +97,14 @@ def getStimGroups(StimStartStopIndex, StimStartStopTimes, maxInterval=90):
   
     while stim_idx < N-1:
         # Record stim group if next stim ends outside of mxInt range
-        if (StimStartStopTimes[1,stim_idx+1] - grp_start) > mxInt:
-            grp_stop = StimStartStopTimes[1,stim_idx]
+        if (StimStartStopTimes[stim_idx+1,1] - grp_start) > mxInt:
+            grp_stop = StimStartStopTimes[stim_idx,1]
             stimGroups.append([grp_start, grp_stop, 
-                               StimStartStopIndex[0,start_idx], StimStartStopIndex[1,stim_idx],
+                               StimStartStopIndex[start_idx,0], StimStartStopIndex[stim_idx,1],
                                n_grp])
             # Restet counters
             n_grp = 0
-            grp_start = StimStartStopTimes[0,stim_idx+1]
+            grp_start = StimStartStopTimes[stim_idx+1,0]
             start_idx = stim_idx+1
             
         # Increment counters
@@ -114,24 +114,142 @@ def getStimGroups(StimStartStopIndex, StimStartStopTimes, maxInterval=90):
     return np.array(stimGroups)
          
 
-def getEventFeature(AllData, AllTime, Ecog_Events, eventName, nwnd_samp, feature):
+def getEventIdx(AllData, Ecog_Events, eventName):
+    strt = Ecog_Events['Event Start idx'][Ecog_Events['ECoG trigger']== eventName]
+    end = Ecog_Events['Event End idx'][Ecog_Events['ECoG trigger']== eventName]
     
-    startIdx = np.asarray(Ecog_Events['Event Start idx'][Ecog_Events['ECoG trigger']==eventName])
-    
-    return getFeature(AllData, AllTime, startIdx, nwnd_samp, feature)
+    return np.vstack((strt, end)).T
 
 
-def getFeature(AllData, AllTime, startIdx, nwnd_samp, feature):
-    """ Get feature calculated over wnd_nsamp """
+def getIntersectingIntervals(ivals1, ivals2):
+    '''
+    get indices for intervals that overlap in two interval lists
     
-    v_smp = np.arange(nwnd_samp)
-    wnd_idx = startIdx.reshape(len(startIdx),1) + v_smp
+    Parameters
+    ----------
+    ivals1 : [N x 2] list of disjoint intervals
+    ivals2 : [N x 2] list of disjoint intervals
+
+    Returns
+    -------
+    overlp_idx1 : index list of intervals in ivals1 that overlap ivals2 
+    overlp_idx2 : index list of intervals in ivals2 that overlap ivals1
+
+    '''
+    assert ivals1.shape[1]==2, "StimStartStopTimes should be 2xN"
+    assert ivals2.shape[1]==2, "StimStartStopIndex should be 2xN"
     
-    wind_feats = np.empty([len(startIdx), 4])
+    # i and j pointers for ivals1  
+    # and ivals2 respectively 
+    i = j = 0
+      
+    n = len(ivals1) 
+    m = len(ivals2)
     
-    for i_chan in range(0,4):
-        wind_feats[:,i_chan] = list(map(lambda x: sum(abs(np.diff(x)))/len(x), AllData[i_chan,wnd_idx]))
+    overlp_idx1 = set()
+    overlp_idx2= set()
+    
+    ivals1 = sorted(ivals1, key=lambda x: x[0])
+    ivals2 = sorted(ivals2, key=lambda x: x[0])
+  
+    # Loop through all intervals unless one  
+    # of the interval gets exhausted 
+    while i < n and j < m: 
+          
+        # Left bound for intersecting segment 
+        l = max(ivals1[i][0], ivals2[j][0]) 
+          
+        # Right bound for intersecting segment 
+        r = min(ivals1[i][1], ivals2[j][1]) 
+          
+        # If segment is overlapping
+        if l <= r:  
+            overlp_idx1.add(i)
+            overlp_idx2.add(j)
+  
+        # If i-th interval's right bound is  
+        # smaller increment i else increment j 
+        if ivals1[i][1] < ivals2[j][1]: 
+            i += 1
+        else: 
+            j += 1
+            
+    return list(overlp_idx1), list(overlp_idx2)
+      
+
+def getWindowIdx(stIdx, AllTime, winDur, offsetDur):
+    '''
+    Parameters
+    ----------
+    stIdx : vector of starting indices from which to calculate the window
+    AllTime : Time vector
+    winDur : positive int, duration of window in seconds
+    offsetDur : signed int, offset (in seconds) at which to start counting the window
+
+    Returns
+    -------
+    windowIdx : [N x 2] matrix of window start/stop indices
+
+    '''
+    offset = offsetDur * 10**6
+    wind = winDur * 10**6
+    
+    start_times = AllTime[stIdx] + offset
+    end_times = AllTime[stIdx] + offset + wind
+    
+    #Map start and end times to closest index 
+    start_idx= _mapTimeToIdx(AllTime, start_times)
+    end_idx= _mapTimeToIdx(AllTime, end_times)
+    
+    #Throw out windows that may straddle multiple clips
+    
+    AllTime[end_idx]-AllTime[start_idx]
+    
+    windowIdx=[start_idx, end_idx]
+    
+    return windowIdx
+
+
+# def getFeature(AllData, AllTime, startIdx, nwnd_samp, feature):
+#     """ Get feature calculated over wnd_nsamp """
+    
+#     v_smp = np.arange(nwnd_samp)
+#     wnd_idx = startIdx.reshape(len(startIdx),1) + v_smp
+    
+#     wind_feats = np.empty([len(startIdx), 4])
+    
+#     for i_chan in range(0,4):
+#         wind_feats[:,i_chan] = list(map(lambda x: sum(abs(np.diff(x)))/len(x), AllData[i_chan,wnd_idx]))
         
-    return wind_feats
+#     return wind_feats
 
+def _mapTimeToIdx(AllTime, timeVector):
+    
+    #t_idx = [abs(AllTime-time).argmin() for time in timeVector]
+    
+    # NOTE, the assumption that AllTime is sorted cannot be made!
+    # diff= np.inf
+    # jj = 0 #pointer to sorted timeVector
+    
+    # t_idx = []
+    
+    # for i in range(0,len(AllTime)-1):
+    #     dd = abs(AllTime[i+1]-timeVector[jj]) 
+    #     #print(dd)
+    #     if dd >= diff:
+    #         while dd >= diff:
+    #             print(i)
+    #             t_idx.append(i)
+    #             jj = jj + 1
+    #             if jj >= len(timeVector):
+    #                 return t_idx
+    #             diff = abs(AllTime[i]-timeVector[jj])
+    #             dd = abs(AllTime[i+1]-timeVector[jj])
+    #         diff = dd
+    #     else: 
+    #         diff = dd
+              
+    return t_idx
+
+    
  
