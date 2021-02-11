@@ -1,3 +1,5 @@
+
+
 """
 Blackfynn Interface Tools
 (RNS Processing Toolbox)
@@ -13,12 +15,20 @@ Functions in this file:
 
 import scipy.io as sio
 from blackfynn import Blackfynn
+from blackfynn.models import TimeSeries
 from rns_py_tools import conversion as cnv
 import numpy as np
 import csv
 import datetime as DT
 import pdb
-#import TimeSeries 
+
+import jpype
+import jpype.imports
+from jpype.types import *
+
+#Import java modules
+from edu.mayo.msel.mefwriter import MefWriter
+
 import os
 
 
@@ -138,6 +148,13 @@ def uploadNewDat(dataset, tsName, datFolder):
 	ds = bf.get_dataset(dataset)
 	ts = TimeSeries(tsName)
 	ds.add(ts)
+    
+    dpath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'mefs/')
+    
+    ts.append_files('/Users/bscheid/Desktop/RNS013C1.mef')
+
+
+
 
 	if os.path.isdir(datFolder):
 		files = datFolder
@@ -146,7 +163,7 @@ def uploadNewDat(dataset, tsName, datFolder):
 
 	# Check if single mef file, otherwise upload folder
 	if package == None:	
-		ds.set_ready()
+# 	    ds.set_ready()
 		ds.upload(datFolder)
 
 

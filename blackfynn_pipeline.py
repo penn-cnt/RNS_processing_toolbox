@@ -1,9 +1,13 @@
 # Upload and Annotate Files
-from bf_tools import bf_annotator 
+from rns_py_tools import bf_tools
 import json
 import numpy as np
 import os
+from rns_py_tools import conversion as cnv
 
+
+with open('./config.JSON') as f:
+    config= json.load(f); 
 
 def uploadPatientAnnots(ptID_list):
 	''' Load annotations from ECoG Catalog for all patient indices in ptID_list '''
@@ -25,7 +29,7 @@ def uploadPatientAnnots(ptID_list):
 
 		print('Uploading annotations for patient %s'%ptList[i_pt]['Initials'])
 
-		bf_annotator.annotate_from_catalog(package, ecog_catalog)
+		bf_tools.annotate_from_catalog(package, ecog_catalog)
 
 
 def pullPatientAnnots(ptID_list, layerName):
@@ -43,7 +47,7 @@ def pullPatientAnnots(ptID_list, layerName):
 	for i_pt in ptID_list:
 		outputPath = os.path.join(paths['RNS_DATA_Folder'], ptList[i_pt]['RNS_ID'])
 		package = ptList[i_pt]['bf_package']
-		bf_annotator.pull_annotations(package, layerName, outputPath)
+		bf_tools.pull_annotations(package, layerName, outputPath)
 		
 		print('Pulling annotations for patient %s'%ptList[i_pt]['RNS_ID'])
 
@@ -52,4 +56,15 @@ def pullPatientAnnots(ptID_list, layerName):
 # pullPatientAnnots(np.arange(0,19), 'BL_Annotation')
 
 
-
+def uploadNewPatient(ptID, config):
+    
+    i_pt= cnv.ptIdxLookup(config, 'ID', ptID)
+    
+    dataset = config['patients'][i_pt]['bf_dataset']
+    tsName = None
+    dataFolder = cnv.getNPDataPath(ptID, config, 'Dat Folder')
+    catalog_csv = cnv.getNPDataPath(ptID, config, 'ECoG Catalog')
+    
+    cnv.dat2mef(ptID, dataFolder, catalog_csv, config)
+    
+uploadNewPatient('HUP101', config)

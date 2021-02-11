@@ -58,7 +58,7 @@ function [data] = dat2mef_RNS(server, dataPath, csv, numChan, U24id, inst)
 
 
     % Add MEF_writer to the dynamic Java path (change this path to point to the MEF_writer.jar file)
-    javaaddpath('/Volumes/data/RNS_DataSharing/RNS_DataConversion/DAT to MEF/MEF_writer.jar');
+    javaaddpath('MEF_writer.jar');
 
     % Read the timestamps from the processed CSV file    
     csv_file = readtable(csv);
