@@ -79,6 +79,9 @@ def dat2vector(dataFolder, catalog_csv):
 
     return AllData, AllTime_UTC, eventIdx
 
+def dat2mef(dataFolder, catalog_csv):
+    return None
+
 def str2dt_usec(s):
 	dt=DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f")
 	EPOCH = DT.datetime(1970,1,1)
@@ -98,3 +101,19 @@ def histPath(ptnum, config):
   
     dataFolder = os.path.join(config['paths']['DAT_Folder'], prefix + ' EXTERNAL #PHI', prefix + ' Histograms EXTERNAL #PHI', prefix + '_Histogram_Hourly.csv')
     return dataFolder
+
+def ptIdxLookup(config, ID_field, ID):
+    '''
+    Look up patient idex in config based on patient ID
+
+    Args:
+        config (dict): config.json object
+        ID_field (string): field type to match
+        ID (string): patient ID
+
+    Returns:
+        patient index
+    '''
+    
+    ids = [f[ID_field] for f in config['patients']]
+    return ids.index(ID)
