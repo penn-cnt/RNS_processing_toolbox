@@ -17,7 +17,6 @@ import json
 import os
 import numpy as np
 import pandas as pd
-from rns_py_tools import conversion as cnv
 from rns_py_tools import NPDataHandler as npdh
 
 

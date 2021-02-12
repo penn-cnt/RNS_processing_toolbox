@@ -3,7 +3,8 @@ from rns_py_tools import bf_tools
 import json
 import numpy as np
 import os
-from rns_py_tools import conversion as cnv
+from rns_py_tools import utils
+from rns_py_tools import NPDataHandler as npdh
 
 
 with open('./config.JSON') as f:
@@ -58,13 +59,13 @@ def pullPatientAnnots(ptID_list, layerName):
 
 def uploadNewPatient(ptID, config):
     
-    i_pt= cnv.ptIdxLookup(config, 'ID', ptID)
+    i_pt= utils.ptIdxLookup(config, 'ID', ptID)
     
     dataset = config['patients'][i_pt]['bf_dataset']
     tsName = None
-    dataFolder = cnv.getNPDataPath(ptID, config, 'Dat Folder')
-    catalog_csv = cnv.getNPDataPath(ptID, config, 'ECoG Catalog')
+    dataFolder = npdh.getNPDataPath(ptID, config, 'Dat Folder')
+    catalog_csv = npdh.getNPDataPath(ptID, config, 'ECoG Catalog')
     
-    cnv.dat2mef(ptID, dataFolder, catalog_csv, config)
+    npdh.dat2mef(ptID, dataFolder, catalog_csv, config)
     
 uploadNewPatient('HUP101', config)

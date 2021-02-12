@@ -17,8 +17,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from rns_py_tools import conversion as cnv
-from rns_py_tools import ecog, visualize
+from rns_py_tools import ecog, visualize, utils
 
 with open('./config.JSON') as f:
     config= json.load(f);
@@ -50,8 +49,10 @@ def ft_pipeline(ptID):
 
 def align_histograms():
     
+    npts = 5
+    
     for i_pt in range(0,npts):
-        csvFile = cnv.histPath(i_pt, config)
+        csvFile = utils.histPath(i_pt, config)
         hourly = pd.read_csv(csvFile)
     
         plt.plot(hourly['UTC start time'], hourly['Episode starts'])

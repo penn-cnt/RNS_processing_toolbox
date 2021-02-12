@@ -10,7 +10,7 @@ Functions in this file:
 """
 import matplotlib.pyplot as plt
 import numpy as np
-from rns_py_tools import conversion as cnv
+from rns_py_tools import utils
 
 def vis_event(AllData, AllTime, Ecog_Events, datapoints):
     '''
@@ -41,14 +41,14 @@ def vis_event(AllData, AllTime, Ecog_Events, datapoints):
     
     for i in range(0,dlen):
         idx= ievent[i]
-        dt= cnv.posix2dt_UTC(AllTime[start[idx]:end[idx]+1])
+        dt= utils.posix2dt_UTC(AllTime[start[idx]:end[idx]+1])
         dat = AllData[:,start[idx]:end[idx]+1].T+np.arange(4)*100
         
         ymax = max([i for lis in dat for i in lis])
         ymin = min([i for lis in dat for i in lis])
         
         ax[i][0].plot(dt, dat)
-        ax[i][0].vlines(cnv.posix2dt_UTC(AllTime[datapoints[i]]),ymin, ymax)
+        ax[i][0].vlines(utils.posix2dt_UTC(AllTime[datapoints[i]]),ymin, ymax)
         plt.sca(ax[i][0])
         plt.xticks(rotation=20)
         plt.title("%s Event"%(Ecog_Events['ECoG trigger'][idx]))

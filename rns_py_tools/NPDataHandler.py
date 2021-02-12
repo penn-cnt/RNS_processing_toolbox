@@ -16,7 +16,7 @@ Functions in this file:
 
 """
 
-from rns_py_tools import conversion as cnv
+from rns_py_tools import utils
 import glob
 import numpy as np
 import pandas as pd
@@ -109,7 +109,7 @@ def NPgetDataPath(ptID, config, NPDataName):
         string: path to NeuroPace data file or folder
     '''
     
-    ptnum = cnv.ptIdxLookup(config, 'ID', ptID)
+    ptnum = utils.ptIdxLookup(config, 'ID', ptID)
     prefix = '%s_%s_%s'%(config['institution'], 
                          config['patients'][ptnum]['Initials'],
                          config['patients'][ptnum]['PDMS_ID'])

@@ -16,7 +16,7 @@ Functions in this file:
 import scipy.io as sio
 from blackfynn import Blackfynn
 from blackfynn.models import TimeSeries
-from rns_py_tools import conversion as cnv
+from rns_py_tools import utils
 import numpy as np
 import csv
 import datetime as DT
@@ -107,8 +107,8 @@ def annotate_from_catalog(package, ecog_catalog):
 		aCtrs=[]
 		for row in reader:
 			# Parse datetimes into usec, shift timezone to GMT
-			tz_offset= cnv.str2dt_usec(row[trig_UTC_i])-cnv.str2dt_usec(row[trig_local_i])
-			start_local= cnv.str2dt_usec(row[start_local_i])
+			tz_offset= utils.str2dt_usec(row[trig_UTC_i])-utils.str2dt_usec(row[trig_local_i])
+			start_local= utils.str2dt_usec(row[start_local_i])
 
 			starttime=start_local+tz_offset
 			endtime=float(row[ecog_len_i])*1000000+starttime

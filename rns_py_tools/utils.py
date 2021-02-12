@@ -1,22 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Conversion Tools
+Utilities
 (RNS Processing Toolbox)
 
 Functions in this file: 
-    dat2vector(dataFolder, catalog_csv)
     str2dt_usec(s)
     posix2dt_UTC(psx)
+    ptIdxLookup(config, ID_field, ID)
 
 """
-import glob
-import sys
-import os
-import numpy as np
-import pandas as pd
-
 import datetime as DT
-
 
 
 def str2dt_usec(s):
