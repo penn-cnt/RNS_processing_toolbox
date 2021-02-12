@@ -6,7 +6,8 @@ NPDataHandler
 Purpose: Functions associated with handling raw NeuroPace data downloads, including 
 filetype conversion, and file deidentification. 
 
-Functions in this file: 
+Functions in this file:
+    NPdownloadNewBoxData
     NPdeidentifier
     NPdat2vector(dataFolder, catalog_csv)
     NPgetDataPath
@@ -21,6 +22,7 @@ import glob
 import numpy as np
 import pandas as pd
 import sys
+import re
 import os
 from os import path as pth
 
@@ -30,13 +32,69 @@ import jpype.imports
 
 # Launch the JVM
 if not jpype.isJVMStarted():
-    pth.joinype.startJVM(classpath=['rns_py_tools/MEF_writer.jar'])
+    jpype.startJVM(classpath=['lib/MEF_writer.jar'])
     
 from edu.mayo.msel.mefwriter import MefWriter
 
 # Constants
 NUM_CHANNELS = 4
 SAMPLING_RATE = 250
+
+
+def NPdownloadNewBoxData(folderID, path, client):
+    '''
+    Download new NeuroPace data from Box.com
+
+    Args:
+        folderID (str): id of root box folder (can be found in box folder URL)
+        path (str): DESCRIPTION.
+        client (OAuth2): DESCRIPTION.
+
+    Returns:
+        None.
+
+    '''
+    
+    ptFolders = client.folder(folder_id=folderID).get_items()
+    
+    #For all patients
+    for ptFolder in ptFolders:
+        print('Updating %s...'%ptFolder.name)
+        fpath= os.path.join(path, ptFolder.name)
+        
+        if not os.path.exists(fpath):
+            _downloadAll(ptFolder.id, path, 0)
+        else:
+            
+            # Download the CSV catalog and read into variable
+            pat = re.compile('.*ECoG_Catalog.csv')
+            try:
+                ecog_catalog =[item for item in ptFolder.get_items() if pat.match(item.name)][0]
+                output_file = open(os.path.join(fpath, ecog_catalog.name), 'wb')
+                client.file(file_id=ecog_catalog.id).download_to(output_file)
+                output_file.close()
+                print('     Ecog_Catalog updated')
+            except IndexError:
+                print('ECoG_Catalog.csv missing in %s'%(ptFolder.name))
+                continue
+            
+            # Download the Histograms
+            try: 
+                rh = re.compile('.*Histograms*')
+                hist_folder =[item for item in ptFolder.get_items() if rh.match(item.name)][0]
+                _downloadAll(hist_folder.id, fpath, 0)
+                print('     Histograms updated')
+            except IndexError:
+                print('Histogram Folder missing in %s'%(ptFolder.name))
+                pass
+                
+            # Download new Episode Durations files from box that are not local 
+            _helper_downloadNew('.*EpisodeDurations*', ptFolder, fpath)
+            print('     Episode Durations updated')
+
+            # Download new Data files from box that are not local 
+            _helper_downloadNew('.*Data*', ptFolder, fpath)
+            print('     Dat files updated')
 
 
 def NPdeidentifier(ptID, config):
@@ -192,12 +250,70 @@ def dat2mef(ptID, dataFolder, catalog_csv, config):
             mw.setSubjectID(ptID);
             mw.setChannelName(chanLabel);
             mw.setVoltageConversionFactor(gain);
-            mw.close;
-    
+            mw.close;   
     
     return None
 
 #### Helper Functions #####
+
+def _helper_downloadNew(folder_keyword, parent_folder_box, fpath, client):
+        
+   pat = re.compile(folder_keyword)
+   box_fold= [item for item in parent_folder_box.get_items() if pat.match(item.name)][0]
+   box_filenames =  [i.name for i in box_fold.get_items()]
+    
+   try:
+        local_fold = [item for item in os.listdir(fpath) if pat.match(item)][0]
+        local_filenames = os.listdir(os.path.join(fpath, local_fold))
+        
+        download_inds = [i for i, x in enumerate(box_filenames) if x not in local_filenames]
+        ids = [i.id for i in box_fold.get_items()]
+        
+        print('Downloading %s new files to %s'%(len(download_inds), local_fold))
+        
+        for ind in download_inds:
+            output_file= open(os.path.join(fpath, box_fold.name, box_filenames[ind]), 'wb')
+            client.file(file_id=ids[ind]).download_to(output_file)
+            output_file.close()
+    
+   except (IndexError, FileNotFoundError):
+       print('Local folder %s not found, downloading all'%(box_fold.name))
+       _downloadAll(box_fold.id, fpath, 0)
+       pass
+            
+   return
+
+# recursively download all NeuroPace files in boxFolder
+def _downloadAll(folderID, path, ctr, client):
+    """ folderID: box folder ID
+        path: path where folder should be downloaded (don't include name of folder being downloaded
+        ctr: used to print progress
+    """          
+                        
+    folder = client.folder(folder_id=folderID).get()
+    items = client.folder(folder_id=folderID).get_items()
+
+    if not os.path.exists(os.path.join(path, folder.name)):
+        os.makedirs(os.path.join(path, folder.name))
+        
+
+    # mkdir folder name
+    for item in items:
+        # If item is a folder
+        if item.type == 'folder':
+            print(item.name)
+            _downloadAll(item.id, os.path.join(path, folder.name), ctr)
+        # output_file = open('file.pdf', 'wb')
+        elif item.type == 'file':
+            if item.name[0] == '.':
+                continue
+            ctr = ctr+1
+            if ctr%20 == 0:
+                print('Downloading' + pth.join(path, folder.name, item.name) + 'ctr %d'%ctr)
+            output_file = open(pth.join(path, folder.name, item.name), 'wb')
+            client.file(file_id=item.id).download_to(output_file)
+            output_file.close()
+
 
 def _checkDatFolderEcogConcordance(ecog_df, NumberOfFiles):
     ''' Check for inconsistencies between files in dat folder and entries in ecog_df'''
@@ -245,4 +361,5 @@ def _readDatFile(dataFolderPath, ecog_df):
     
     return fdata, ftime
     
+
     

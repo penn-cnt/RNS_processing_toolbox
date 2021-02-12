@@ -3,24 +3,41 @@
 """
 % process_raw script
 % ------------------------------------------------------
-% Convert .DAT files to .MAT files, place in MAT_Folder
+% Download new files from box, deidentify, aggregate .dat data
 % ------------------------------------------------------
-
-% load configuration settings
 
 Created on Wed Sep 16 16:43:22 2020
 
 @author: bscheid
 """
 
+from boxsdk import Client, OAuth2
 import json
 import os
 import numpy as np
 import pandas as pd
 from rns_py_tools import NPDataHandler as npdh
+
+
+def downloadPatientDataFromBox(config):
+    
+    auth = OAuth2(
+        client_id= config['boxKeys']['CLIENT_ID'],
+        client_secret= config['boxKeys']['CLIENT_SECRET'],
+        access_token= config['boxKeys']['CLIENT_ACCESS_TOKEN']
+    )
+
+    client = Client(auth)
+    
+    folderID= config['boxKeys']['Folder_ID']
+    dataPath = config['paths']['RNS_RAW_Folder']
+    
+    npdh.NPdownloadNewBoxData(folderID, dataPath, client)
+    
+    return
     
 
-def loadPatientDataFromFiles(config):
+def loadDeviceDataFromFiles(config):
     
     ptList = [p['ID'] for p in config['patients']]
 
@@ -49,13 +66,15 @@ def loadPatientDataFromFiles(config):
        print('complete')
        
        
-def populateDeidentifiedFiles(config):
+def createDeidentifiedFiles(config):
         
     ptList = [p['ID'] for p in config['patients']]
     
     for ptID in ptList:
         print('Creating deidentified files for %s'%ptID)
         npdh.NPdeidentifier(ptID, config)
+        
+        
       
 if __name__ == "__main__":
    
@@ -65,5 +84,18 @@ if __name__ == "__main__":
     if not os.path.exists(config['paths']['RNS_DATA_Folder']):
         os.makedirs(config['paths']['RNS_DATA_Folder'])
     
-    populateDeidentifiedFiles(config)
+    # Download latest data from Box
+    x = input('Download new data from Box drive (y/n)?: ')
+    if x =='y': 
+        downloadPatientDataFromBox(config)
+    
+    # Create Deidentified copies of files
+    x = input('Populate RNS Data folder with deidentified NeuroPace files (y/n)?: ')
+    if x =='y':     
+        createDeidentifiedFiles(config)
+    
+    # Create readable device recording objects
+    x = input('Aggregate NeuroPace device recordings (y/n)?: ')
+    if x =='y': 
+        loadDeviceDataFromFiles(config)
     
