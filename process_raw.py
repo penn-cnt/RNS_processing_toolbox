@@ -54,7 +54,8 @@ def populateDeidentifiedFiles(config):
     ptList = [p['ID'] for p in config['patients']]
     
     for ptID in ptList:
-        npdh.npdeidentifier(ptID, config)
+        print('Creating deidentified files for %s'%ptID)
+        npdh.NPdeidentifier(ptID, config)
       
 if __name__ == "__main__":
    

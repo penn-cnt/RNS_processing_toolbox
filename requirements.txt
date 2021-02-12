@@ -1,2 +1,0 @@
-blackfynn==4.0.0
-scipy==1.16.1
