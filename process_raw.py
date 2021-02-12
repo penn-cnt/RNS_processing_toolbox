@@ -18,29 +18,20 @@ import os
 import numpy as np
 import pandas as pd
 from rns_py_tools import NPDataHandler as npdh
-
-
-with open('./config.JSON') as f:
-    config= json.load(f); 
-
-
-if not os.path.exists(config['paths']['RNS_DATA_Folder']):
-   os.makedirs(config['paths']['RNS_DATA_Folder'])
     
-npts = len(config['patients'])
 
-def loadPatientDataFromFiles():
+def loadPatientDataFromFiles(config):
+    
+    ptList = [p['ID'] for p in config['patients']]
 
-    for i_pt in range(0,npts):
-
-       ptID =  config['patients'][i_pt]['ID']
+    for ptID in ptList:
        
        print('loading data for patient %s ...'%ptID)
       
        dataFolder = npdh.NPgetDataPath(ptID, config, 'Dat Folder')
        catalog_csv= npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
                                  
-       savepath = os.path.join(config['paths']['RNS_DATA_Folder'], '%s'%config['patients'][i_pt]['RNS_ID']);
+       savepath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'py_dat');
        
        # Get converted Data and Time vectors 
        [AllData, AllTime, eventIdx]= npdh.dat2vector(dataFolder, catalog_csv);
@@ -57,9 +48,21 @@ def loadPatientDataFromFiles():
     
        print('complete')
        
- 
-loadPatientDataFromFiles()       
-
+       
+def populateDeidentifiedFiles(config):
+        
+    ptList = [p['ID'] for p in config['patients']]
+    
+    for ptID in ptList:
+        npdh.npdeidentifier(ptID, config)
+      
+if __name__ == "__main__":
    
-   
+    with open('./config.JSON') as f:
+        config= json.load(f); 
+    
+    if not os.path.exists(config['paths']['RNS_DATA_Folder']):
+        os.makedirs(config['paths']['RNS_DATA_Folder'])
+    
+    populateDeidentifiedFiles(config)
     
