@@ -29,7 +29,7 @@ import jpype.imports
 
 
 # Launch the JVM
-if not pth.joinype.isJVMStarted():
+if not jpype.isJVMStarted():
     pth.joinype.startJVM(classpath=['rns_py_tools/MEF_writer.jar'])
     
 from edu.mayo.msel.mefwriter import MefWriter
