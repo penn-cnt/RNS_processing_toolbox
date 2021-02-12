@@ -27,6 +27,11 @@ import jpype.imports
 from jpype.types import *
 
 #Import java modules
+
+# Launch the JVM
+if not jpype.isJVMStarted():
+    jpype.startJVM(classpath=['rns_py_tools/MEF_writer.jar'])
+    
 from edu.mayo.msel.mefwriter import MefWriter
 
 import os
@@ -121,6 +126,7 @@ def annotate_from_catalog(package, ecog_catalog):
 
 			print(annotName, aNames, aCtrs)
 
+
 #TODO, finish 
 def uploadMef(dataset, package, mefFolder):
     ''' Uploads mef files to package. If package is "None", 
@@ -141,13 +147,13 @@ def uploadMef(dataset, package, mefFolder):
 
 #TODO, finish:
 def uploadNewDat(dataset, tsName, datFolder):
-	''' Uploads mef files to package. If package is "None", 
+    ''' Uploads mef files to package. If package is "None", 
 		then a new package is created within the dataset '''
 
-	bf = Blackfynn()
-	ds = bf.get_dataset(dataset)
-	ts = TimeSeries(tsName)
-	ds.add(ts)
+    bf = Blackfynn()
+    ds = bf.get_dataset(dataset)
+    ts = TimeSeries(tsName)
+    ds.add(ts)
     
     dpath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'mefs/')
     
@@ -156,14 +162,14 @@ def uploadNewDat(dataset, tsName, datFolder):
 
 
 
-	if os.path.isdir(datFolder):
-		files = datFolder
-	elif os.path.isfile(path):  
-		files = datFolder
+    if os.path.isdir(datFolder):
+        files = datFolder
+    elif os.path.isfile(path):  
+        files = datFolder
 
 	# Check if single mef file, otherwise upload folder
-	if package == None:	
-# 	    ds.set_ready()
-		ds.upload(datFolder)
+    if package == None:	
+        #ds.set_ready()
+        ds.upload(datFolder)
 
 
