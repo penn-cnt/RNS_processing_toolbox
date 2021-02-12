@@ -52,9 +52,9 @@ function [data] = dat2mef_RNS(server, dataPath, csv, numChan, U24id, inst)
 %       '/Volumes/data/RNS_DataSharing/processed_RNS/AA_Catalog.csv'...
 %           4, 'RNS_001', 'UPenn');
 
-%   example dataPath: dataPath = '/Volumes/data/RNS_DataSharing/processed_20180711/AA_copy'
-%   example csv:      csv      = '/Volumes/data/RNS_DataSharing/processed_20180711/UPenn_ECoG_Catalog_new.csv'
-%                     csv      = '/Volumes/data/RNS_DataSharing/processed_20180815/output.csv'
+%   example dataPath: dataPath = '/Volumes/data/RNS_DataSharing/processed/AA_copy'
+%   example csv:      csv      = '/Volumes/data/RNS_DataSharing/processed/UPenn_ECoG_Catalog_new.csv'
+%                     csv      = '/Volumes/data/RNS_DataSharing/processed/output.csv'
 
 
     % Add MEF_writer to the dynamic Java path (change this path to point to the MEF_writer.jar file)

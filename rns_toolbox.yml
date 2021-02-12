@@ -1,4 +1,4 @@
-name: envpy37
+name: rns_processing_env
 channels:
   - defaults
 dependencies:
@@ -55,5 +55,5 @@ dependencies:
     - urllib3==1.25.10
     - websocket-client==0.57.0
     - wrapt==1.12.1
-prefix: /home/bscheid/anaconda3/envs/envpy37
+prefix: /home/bscheid/anaconda3/envs/rns_processing_env
 
