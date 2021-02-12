@@ -26,13 +26,13 @@ from os import path as pth
 
 import jpype
 import jpype.imports
-from jpype.types import *
-from edu.mayo.msel.mefwriter import MefWriter
 
 
 # Launch the JVM
 if not pth.joinype.isJVMStarted():
     pth.joinype.startJVM(classpath=['rns_py_tools/MEF_writer.jar'])
+    
+from edu.mayo.msel.mefwriter import MefWriter
 
 # Constants
 NUM_CHANNELS = 4
