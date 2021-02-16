@@ -17,23 +17,9 @@ import scipy.io as sio
 from blackfynn import Blackfynn
 from blackfynn.models import TimeSeries
 from rns_py_tools import utils
-import numpy as np
+import glob
 import csv
-import datetime as DT
 import pdb
-
-import jpype
-import jpype.imports
-from jpype.types import *
-
-#Import java modules
-
-# Launch the JVM
-if not jpype.isJVMStarted():
-    jpype.startJVM(classpath=['rns_py_tools/MEF_writer.jar'])
-    
-from edu.mayo.msel.mefwriter import MefWriter
-
 import os
 
 
@@ -82,7 +68,7 @@ def annotate_UTC_from_mat(package, newLayer, annot_mat_file):
 	    count = count + 1
 	    print(count)
 
-
+# TODO: test this function
 def annotate_from_catalog(package, ecog_catalog):
 	''' package: blackfynn package ID 
 		ecog_catalog: .csv file from Neuropace '''
@@ -145,31 +131,36 @@ def uploadMef(dataset, package, mefFolder):
         package.append_files(mef_file)
 
 
-#TODO, finish:
-def uploadNewDat(dataset, tsName, datFolder):
+#TODO, check for Blackfynn agent, if not, agent = false
+#TODO: Only append _new_ .dat files
+#TODO: Perhaps pull all .mef files into one folder and do single upload. 
+def uploadNewDat(tsName, ptID, config):
     ''' Uploads mef files to package. If package is "None", 
 		then a new package is created within the dataset '''
 
+    i_pt= utils.ptIdxLookup(config, 'ID', ptID)    
+    dataset = config['patients'][i_pt]['bf_dataset']
+    
     bf = Blackfynn()
     ds = bf.get_dataset(dataset)
     ts = TimeSeries(tsName)
-    ds.add(ts)
-    
+ 
     dpath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'mefs/')
+        
+    allMefs = glob.glob(os.path.join(dpath,'*', '*.mef'))
     
-    ts.append_files('/Users/bscheid/Desktop/RNS013C1.mef')
+    # Check that ts doesn't exist. If not: 
+    ds.add(ts)
+    ctr = 1
+    
+    for x in allMefs:
+        print('Upload %d of %d'%(ctr, len(allMefs)))
+        ts.append_files(x) 
+        ctr = ctr+1
 
-
-
-
-    if os.path.isdir(datFolder):
-        files = datFolder
-    elif os.path.isfile(path):  
-        files = datFolder
-
-	# Check if single mef file, otherwise upload folder
-    if package == None:	
-        #ds.set_ready()
-        ds.upload(datFolder)
+# 	# Check if single mef file, otherwise upload folder
+#     if package == None:	
+#         #ds.set_ready()
+    ds.upload(dpath,  recursive=True, display_progress = True)
 
 

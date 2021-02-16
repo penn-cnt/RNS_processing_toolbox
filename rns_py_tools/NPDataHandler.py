@@ -17,14 +17,15 @@ Functions in this file:
 
 """
 
-from rns_py_tools import utils
 import glob
 import numpy as np
 import pandas as pd
 import sys
 import re
+import datetime as DT
 import os
 from os import path as pth
+from rns_py_tools import utils as utils
 
 import jpype
 import jpype.imports
@@ -200,7 +201,7 @@ def dat2vector(dataFolder, catalog_csv):
     
     for i_file in range(0,NumberOfFiles):
               
-        [fdata, ftime] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
+        [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
         dlen = fdata.shape[1]
         AllTime_UTC.append(ftime)
         eventIdx.append(ctr + np.array([0,dlen-1]))
@@ -216,7 +217,10 @@ def dat2vector(dataFolder, catalog_csv):
     return AllData, AllTime_UTC, eventIdx
 
 
-def dat2mef(ptID, dataFolder, catalog_csv, config):
+def NPdat2mef(ptID, config):
+    
+    dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
+    catalog_csv = NPgetDataPath(ptID, config, 'ECoG Catalog')
     
     NumberOfFiles = len(glob.glob(pth.join(dataFolder, "*.dat")));
     ecog_df= pd.read_csv(catalog_csv)
@@ -227,30 +231,33 @@ def dat2mef(ptID, dataFolder, catalog_csv, config):
     dpath = pth.join(config['paths']['RNS_DATA_Folder'], ptID, 'mefs/')
     gain = 1; 
  
-
     for i_file in range(0,NumberOfFiles):
+        
+        fname= ecog_df['Filename'][i_file][0:-4]
+        
+        # Create mef subfolder, skip creation if mef folder already exists
+        if pth.isdir(pth.join(dpath, fname)):
+            continue
+       
+        os.mkdir(pth.join(dpath, fname))
               
-        [fdata, ftime] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
-
-        blocksize = 16
+        [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
+        blockSize = round(4000/SAMPLING_RATE)
         th = 100000
-        fname= ecog_df['Filename'][i_file]
-        
-        
         
         for i_chan in range(0,NUM_CHANNELS):
             
-            chanLabel= '%s_%sC%d.mef'%(ptID, fname[0:-4], i_chan+1)
+            chanLabel= '%s_C%d.mef'%(ptID, i_chan+1)
             
             print(fdata[i_chan][:])
             
-            mw = MefWriter(dpath+chanLabel, blocksize, SAMPLING_RATE, th)
+            mw = MefWriter(pth.join(dpath, fname, chanLabel), blockSize, SAMPLING_RATE, th)
             mw.writeData((fdata[i_chan][:]).astype(int), ftime.astype('l'), fdata.shape[1])
             mw.setInstitution(inst);
             mw.setSubjectID(ptID);
-            mw.setChannelName(chanLabel);
+            mw.setChannelName(chanLabel[0:-4]);
             mw.setVoltageConversionFactor(gain);
-            mw.close;   
+            mw.close()  
     
     return None
 
@@ -336,30 +343,54 @@ def _checkDatFolderEcogConcordance(ecog_df, NumberOfFiles):
 def _readDatFile(dataFolderPath, ecog_df):
 
     # Open up dat_file
-    dat_file = pth.join(dataFolderPath, ecog_df['Filename'][0])
-    fs = ecog_df['Sampling rate'][0]
+    dat_file = pth.join(dataFolderPath, ecog_df['Filename'].item())
+    fs = ecog_df['Sampling rate'].item()
     
     with open(dat_file, 'rb') as fid:
         fdata = np.fromfile(fid, np.int16).reshape((-1, NUM_CHANNELS)).T
     
     # Add data in each channel of fdata array if channel is "ON", zeros if "OFF"
-    if ecog_df['Ch 1 enabled'][0]== 'Off':
+    if ecog_df['Ch 1 enabled'].item()== 'Off':
         fdata = np.insert(fdata, 0, 0, axis=0)
-    if ecog_df['Ch 2 enabled'][0] == 'Off':
+    if ecog_df['Ch 2 enabled'].item() == 'Off':
         fdata = np.insert(fdata, 1, 0, axis=0)
-    if ecog_df['Ch 3 enabled'][0] == 'Off':
+    if ecog_df['Ch 3 enabled'].item() == 'Off':
         fdata = np.insert(fdata, 2, 0, axis=0)
-    if ecog_df['Ch 4 enabled'][0] == 'Off':
+    if ecog_df['Ch 4 enabled'].item() == 'Off':
         fdata = np.insert(fdata, 3, 0, axis=0)
+        
+
+    # Get UTC and local trigger times, and timestamp as strings. 
+    if isinstance(ecog_df['Raw UTC timestamp'].item(),DT.datetime):
+        print('UTC is datetime')
+        raw_UTC_str = ecog_df['Raw UTC timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()
+    else: 
+        raw_UTC_str = ecog_df['Raw UTC timestamp'].item()
+        print('UTC is str')
+        
+    if isinstance(ecog_df['Raw local timestamp'].item(), DT.datetime):
+        raw_local_str = ecog_df['Raw local timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()
+    else: 
+        raw_local_str = ecog_df['Raw local timestamp'].item()
+        
+    if isinstance(ecog_df['Timestamp'].item(), DT.datetime):
+        timestamp_str = ecog_df['Timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()
+    else: 
+        timestamp_str = ecog_df['Timestamp'].item()
+        
         
     # Calculate associated time vector    
     dlen = fdata.shape[1]
     t_vec = np.arange(dlen)/fs*10**6
-    t_start = (ecog_df['Raw UTC timestamp'][0]- pd.Timestamp("1970-01-01")) // pd.Timedelta('1us')
+    t_trigger_UTC = utils.str2dt_usec(raw_UTC_str)
+    t_trigger_local = utils.str2dt_usec(raw_local_str)
+    t_conversion_usec = t_trigger_UTC - t_trigger_local
+    t_start = utils.str2dt_usec(timestamp_str) + t_conversion_usec 
+    
     
     ftime = t_start + t_vec
     
-    return fdata, ftime
+    return fdata, ftime, t_conversion_usec
     
 
     
