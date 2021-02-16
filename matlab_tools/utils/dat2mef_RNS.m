@@ -165,7 +165,7 @@ function [data] = dat2mef_RNS(server, dataPath, csv, numChan, U24id, inst)
             timestep = 1000000/fs; % microseconds
                       
             % Get row and column of DAT file in CSV file
-            [row,col] = find(strcmp(DATfile,csv_file{:,end})); % find row corresponding to DAT file
+            [row,col] = find(strcmp(DATfile,csv_file.Filename)); % find row corresponding to DAT file
             
             % Info for Raw UTC Timestamp
             timestamp_rawUTC = string(csv_file{row,'RawUTCTimestamp'}); % Get the timestamp
@@ -219,7 +219,7 @@ function [data] = dat2mef_RNS(server, dataPath, csv, numChan, U24id, inst)
             mw.setSubjectID(U24id);
             mw.setChannelName(chanLabel);
             mw.setVoltageConversionFactor(gain);
-            mw.close;
+            mw.close();
         end
     end
 end

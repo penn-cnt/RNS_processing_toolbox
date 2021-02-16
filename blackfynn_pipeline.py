@@ -1,9 +1,8 @@
 # Upload and Annotate Files
-from rns_py_tools import bf_tools
+
 import json
-import numpy as np
 import os
-from rns_py_tools import utils
+from rns_py_tools import bf_tools
 from rns_py_tools import NPDataHandler as npdh
 
 
@@ -59,13 +58,10 @@ def pullPatientAnnots(ptID_list, layerName):
 
 def uploadNewPatient(ptID, config):
     
-    i_pt= utils.ptIdxLookup(config, 'ID', ptID)
+    tsName = ptID
+    # Convert any new .dat files into mef files
+    npdh.NPdat2mef(ptID, config)
     
-    dataset = config['patients'][i_pt]['bf_dataset']
-    tsName = None
-    dataFolder = npdh.getNPDataPath(ptID, config, 'Dat Folder')
-    catalog_csv = npdh.getNPDataPath(ptID, config, 'ECoG Catalog')
+    # Upload mefs to blackfynn
+    bf_tools.uploadNewDat(tsName, ptID, config)
     
-    npdh.dat2mef(ptID, dataFolder, catalog_csv, config)
-    
-uploadNewPatient('HUP101', config)
