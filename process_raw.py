@@ -14,8 +14,8 @@ Created on Wed Sep 16 16:43:22 2020
 from boxsdk import Client, OAuth2
 import json
 import os
-import numpy as np
 import pandas as pd
+import hdf5storage
 from rns_py_tools import NPDataHandler as npdh
 
 
@@ -37,39 +37,35 @@ def downloadPatientDataFromBox(config):
     return
     
 
-def loadDeviceDataFromFiles(config):
-    
-    ptList = [p['ID'] for p in config['patients']]
+def loadDeviceDataFromFiles(pList, config):
 
     for ptID in ptList:
        
        print('loading data for patient %s ...'%ptID)
       
-       dataFolder = npdh.NPgetDataPath(ptID, config, 'Dat Folder')
-       catalog_csv= npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
-                                 
-       savepath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'py_dat');
+       savepath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID);
        
        # Get converted Data and Time vectors 
-       [AllData, AllTime, eventIdx]= npdh.dat2vector(dataFolder, catalog_csv);
+       [AllData, eventIdx] = npdh.NPdat2mat(ptID, config)
     
        #Add in additional metadata
+       catalog_csv= npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
        Ecog_Events = pd.read_csv(catalog_csv);
        Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Patient ID', 'Device ID'])
        Ecog_Events['Event Start idx'] = [row[0] for row in eventIdx]; 
        Ecog_Events['Event End idx'] = [row[1] for row in eventIdx];
        
        # Save updated csv and all events
-       Ecog_Events.to_csv(savepath+'_Ecog.csv', index=False)
-       np.savez_compressed(savepath, AllData=AllData, AllTime=AllTime, eventIdx=eventIdx)
+       Ecog_Events.to_csv(os.path.join(savepath,'Ecog_Catalog.csv'), index=False)
+       
+       hdf5storage.savemat(os.path.join(savepath, 'Device_Data.mat'), {"AllData": AllData, "EventIdx":eventIdx}, 
+                           format ='7.3', oned_as='column', store_python_metadata=True)
     
        print('complete')
        
        
-def createDeidentifiedFiles(config):
-        
-    ptList = [p['ID'] for p in config['patients']]
-    
+def createDeidentifiedFiles(pList, config):
+            
     for ptID in ptList:
         print('Creating deidentified files for %s'%ptID)
         npdh.NPdeidentifier(ptID, config)
@@ -80,6 +76,8 @@ if __name__ == "__main__":
    
     with open('./config.JSON') as f:
         config= json.load(f); 
+        
+    ptList = ['HUP101'] #List patient IDs here
     
     if not os.path.exists(config['paths']['RNS_DATA_Folder']):
         os.makedirs(config['paths']['RNS_DATA_Folder'])
@@ -92,10 +90,10 @@ if __name__ == "__main__":
     # Create Deidentified copies of files
     x = input('Populate RNS Data folder with deidentified NeuroPace files (y/n)?: ')
     if x =='y':     
-        createDeidentifiedFiles(config)
+        createDeidentifiedFiles(ptList, config)
     
     # Create readable device recording objects
     x = input('Aggregate NeuroPace device recordings (y/n)?: ')
     if x =='y': 
-        loadDeviceDataFromFiles(config)
+        loadDeviceDataFromFiles(ptList, config)
     

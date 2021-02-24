@@ -186,16 +186,21 @@ def NPgetDataPath(ptID, config, NPDataName):
     return switcher.get(NPDataName.lower(), "File/Folder not found")
 
 
-def dat2vector(dataFolder, catalog_csv):
+def NPdat2mat(ptID, config):
     
+    dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
+    catalog_csv = NPgetDataPath(ptID, config, 'ECoG Catalog')
+
     NumberOfFiles = len(glob.glob(pth.join(dataFolder, "*.dat")));
+    
     ecog_df= pd.read_csv(catalog_csv)
+    ecog_df= ecog_df.drop(columns=['Initials', 'Device ID'])
+    ecog_df['Patient ID']= ptID
 
     _checkDatFolderEcogConcordance(ecog_df, NumberOfFiles)
 
     ctr = 0
     
-    AllTime_UTC = []
     AllData = []
     eventIdx = []
     
@@ -203,18 +208,16 @@ def dat2vector(dataFolder, catalog_csv):
               
         [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
         dlen = fdata.shape[1]
-        AllTime_UTC.append(ftime)
+        AllData.append(fdata)
         eventIdx.append(ctr + np.array([0,dlen-1]))
         ctr = ctr + dlen
 
-    AllTime_UTC = np.concatenate(AllTime_UTC)
-    AllTime_UTC = AllTime_UTC.astype('uint64')
     AllData = np.concatenate(AllData, axis = 1)
-    AllData = AllData.astype('uint16')
+    AllData = AllData.astype('int16').T
     eventIdx = np.array(eventIdx)
-    eventIdx = eventIdx.astype('uint32')
+    eventIdx = eventIdx.astype('int32')
 
-    return AllData, AllTime_UTC, eventIdx
+    return AllData, eventIdx
 
 
 def NPdat2mef(ptID, config):
@@ -346,27 +349,26 @@ def _readDatFile(dataFolderPath, ecog_df):
     dat_file = pth.join(dataFolderPath, ecog_df['Filename'].item())
     fs = ecog_df['Sampling rate'].item()
     
+    # Note, 512 is mid-rail
     with open(dat_file, 'rb') as fid:
-        fdata = np.fromfile(fid, np.int16).reshape((-1, NUM_CHANNELS)).T
+        fdata = np.fromfile(fid, np.int16).reshape((-1, NUM_CHANNELS)).T-512
     
     # Add data in each channel of fdata array if channel is "ON", zeros if "OFF"
     if ecog_df['Ch 1 enabled'].item()== 'Off':
-        fdata = np.insert(fdata, 0, 0, axis=0)
+        fdata = np.insert(fdata, 0, float("nan"), axis=0)
     if ecog_df['Ch 2 enabled'].item() == 'Off':
-        fdata = np.insert(fdata, 1, 0, axis=0)
+        fdata = np.insert(fdata, 1, float("nan"), axis=0)
     if ecog_df['Ch 3 enabled'].item() == 'Off':
-        fdata = np.insert(fdata, 2, 0, axis=0)
+        fdata = np.insert(fdata, 2, float("nan"), axis=0)
     if ecog_df['Ch 4 enabled'].item() == 'Off':
-        fdata = np.insert(fdata, 3, 0, axis=0)
+        fdata = np.insert(fdata, 3, float("nan"), axis=0)
         
 
     # Get UTC and local trigger times, and timestamp as strings. 
     if isinstance(ecog_df['Raw UTC timestamp'].item(),DT.datetime):
-        print('UTC is datetime')
         raw_UTC_str = ecog_df['Raw UTC timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()
     else: 
         raw_UTC_str = ecog_df['Raw UTC timestamp'].item()
-        print('UTC is str')
         
     if isinstance(ecog_df['Raw local timestamp'].item(), DT.datetime):
         raw_local_str = ecog_df['Raw local timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()

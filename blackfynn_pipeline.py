@@ -9,6 +9,7 @@ from rns_py_tools import NPDataHandler as npdh
 with open('./config.JSON') as f:
     config= json.load(f); 
 
+
 def uploadPatientCatalogAnnots(ptID, config):
 	''' Load annotations from ECoG Catalog for all patient indices in ptID_list '''
 
