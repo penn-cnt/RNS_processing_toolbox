@@ -213,7 +213,7 @@ def NPdat2mat(ptID, config):
     eventIdx = []
     dneIdx = []
     
-    for i_file in range(0,NumberOfFiles):
+    for i_file in range(0,ecog_df.shape[0]):
             
         try:
             [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
@@ -224,13 +224,15 @@ def NPdat2mat(ptID, config):
             
         except (FileNotFoundError):
             print('File %s not found'%(ecog_df['Filename'][i_file]))
-            dneIdx.appen(i_file)
-            continue
+            dneIdx.append(i_file)
+            
 
     AllData = np.concatenate(AllData, axis = 1)
     AllData = AllData.astype('int16').T
     eventIdx = np.array(eventIdx)
     eventIdx = eventIdx.astype('int32')
+
+    assert eventIdx.shape[0] == ecog_df.shape[0]-len(dneIdx)
 
     return AllData, eventIdx, dneIdx
 
@@ -353,7 +355,8 @@ def _checkDatFolderEcogConcordance(ecog_df, NumberOfFiles):
     ecog_df['Raw UTC timestamp'] = pd.to_datetime(ecog_df['Raw UTC timestamp'], format= '%Y-%m-%d %H:%M:%S.%f')
     
     if ecog_df.shape[0] != NumberOfFiles:
-        print("Warning: mismatched number of.dat files and ECoG catalog length")
+        print("Warning: mismatched number of.dat files (%d) and ECoG catalog length (%d)"%
+            (NumberOfFiles, ecog_df.shape[0]))
     
     if len(np.unique(ecog_df['Sampling rate'])) > 1:
         sys.exit("Error: Multiple SamplingRates in file")
@@ -370,22 +373,22 @@ def _readDatFile(dataFolderPath, ecog_df):
     # Open up dat_file
     dat_file = pth.join(dataFolderPath, ecog_df['Filename'].item())
     fs = ecog_df['Sampling rate'].item()
-        
+    
+    enabled = (ecog_df[['Ch 1 enabled', 'Ch 2 enabled', 
+                        'Ch 3 enabled', 'Ch 4 enabled']] == 'On').values.tolist()[0]
+    
+    num_channels = sum(enabled)
+       
     # Note, 512 is mid-rail
     with open(dat_file, 'rb') as fid:
-        fdata = np.fromfile(fid, np.int16).reshape((-1, NUM_CHANNELS)).T-512
-              
-    # Add data in each channel of fdata array if channel is "ON", zeros if "OFF"
-    if ecog_df['Ch 1 enabled'].item()== 'Off':
-        fdata = np.insert(fdata, 0, float("nan"), axis=0)
-    if ecog_df['Ch 2 enabled'].item() == 'Off':
-        fdata = np.insert(fdata, 1, float("nan"), axis=0)
-    if ecog_df['Ch 3 enabled'].item() == 'Off':
-        fdata = np.insert(fdata, 2, float("nan"), axis=0)
-    if ecog_df['Ch 4 enabled'].item() == 'Off':
-        fdata = np.insert(fdata, 3, float("nan"), axis=0)
+        fdata = np.fromfile(fid, np.int16).reshape((-1, num_channels)).T-512
+    
+    # Pad with zeros in each channel of fdata array if channel is "ON", zeros if "OFF"
+    # Note, ideally this would be Nan but python doesn't support Nan integers....
+    off_chans = [i for i, x in enumerate(enabled) if x == False]
+    for oc in off_chans:
+        fdata = np.insert(fdata, oc, 0, axis=0)
         
-
     # Get UTC and local trigger times, and timestamp as strings. 
     if isinstance(ecog_df['Raw UTC timestamp'].item(),DT.datetime):
         raw_UTC_str = ecog_df['Raw UTC timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()

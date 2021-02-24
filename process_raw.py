@@ -38,7 +38,7 @@ def downloadPatientDataFromBox(pList, config):
 def loadDeviceDataFromFiles(pList, config):
 
     for ptID in ptList:
-       
+
        print('loading data for patient %s ...'%ptID)
       
        savepath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID);
@@ -54,13 +54,14 @@ def loadDeviceDataFromFiles(pList, config):
        if dneIdx:
            Ecog_Events.drop(index=dneIdx, inplace=True)
            Ecog_Events.reset_index(drop=True, inplace=True)
-       
+           print('Removing %d entries from deidentified ECoG_Catalog.csv due to missing data'%(len(dneIdx)))
+
        Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Device ID'])
        Ecog_Events['Patient ID']= ptID
        Ecog_Events['Event Start idx'] = [row[0] for row in eventIdx]; 
        Ecog_Events['Event End idx'] = [row[1] for row in eventIdx];
        
-       # Save updated csv and all events
+              # Save updated csv and all events
        Ecog_Events.to_csv(os.path.join(savepath,'ECoG_Catalog.csv'), index=False)
        
        hdf5storage.savemat(os.path.join(savepath, 'Device_Data.mat'), {"AllData": AllData, "EventIdx":eventIdx}, 
@@ -82,8 +83,7 @@ if __name__ == "__main__":
     with open('./config.JSON') as f:
         config= json.load(f); 
         
-    ptList = ['HUP137'] #List patient IDs here
-    # ptList = [pt['ID'] for pt in config['patients']]
+    ptList = [pt['ID'] for pt in config['patients']]
     
     if not os.path.exists(config['paths']['RNS_DATA_Folder']):
         os.makedirs(config['paths']['RNS_DATA_Folder'])

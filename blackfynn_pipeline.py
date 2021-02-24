@@ -28,19 +28,25 @@ def pullPatientAnnots(config, layerName):
         print('Pulling annotations for patient %s'%pt)
 
 
-def uploadNewPatient(ptID, config):
+def uploadNewPatient(ptList, config):
     
-    tsName = ptID
-    # Convert any new .dat files into mef files
-    npdh.NPdat2mef(ptID, config)
-    
-    # Upload mefs to blackfynn
-    bf_tools.uploadNewDat(tsName, ptID, config)
+    for ptID in ptList:
+
+        tsName = ptID
+        # Convert any new .dat files into mef files
+        npdh.NPdat2mef(ptID, config)
+        
+        # Upload mefs to blackfynn
+        # bf_tools.uploadNewDat(tsName, ptID, config)
     
 
 if __name__ == "__main__":
    
     with open('./config.JSON') as f:
-        config= json.load(f); 
+        config= json.load(f)
+
+    ptList = ['HUP096']
+
+    uploadNewPatient(ptList, config)
         
     
