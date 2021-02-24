@@ -19,7 +19,7 @@ import hdf5storage
 from rns_py_tools import NPDataHandler as npdh
 
 
-def downloadPatientDataFromBox(config):
+def downloadPatientDataFromBox(pList, config):
     
     auth = OAuth2(
         client_id= config['boxKeys']['CLIENT_ID'],
@@ -29,10 +29,8 @@ def downloadPatientDataFromBox(config):
 
     client = Client(auth)
     
-    folderID= config['boxKeys']['Folder_ID']
-    dataPath = config['paths']['RNS_RAW_Folder']
-    
-    npdh.NPdownloadNewBoxData(folderID, dataPath, client)
+    for ptID in pList:
+        npdh.NPdownloadNewBoxData(ptID, config, client)
     
     return
     
@@ -93,7 +91,7 @@ if __name__ == "__main__":
     # Download latest data from Box
     x = input('Download new data from Box drive (y/n)?: ')
     if x =='y': 
-        downloadPatientDataFromBox(config)
+        downloadPatientDataFromBox(ptList, config)
     
     # Create Deidentified copies of files
     x = input('Populate RNS Data folder with deidentified NeuroPace files (y/n)?: ')
