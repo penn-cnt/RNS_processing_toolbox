@@ -60,8 +60,9 @@ def NPdownloadNewBoxData(ptID, config, client):
     path = config['paths']['RNS_RAW_Folder']
     
     ptFolders = client.folder(folder_id=folderID).get_items()
+
     rt = pth.basename(NPgetDataPath(ptID, config, 'root folder'))
-    ptFolder = [i for i in ptFolders.get_items() if i.name == rt][0]
+    ptFolder = [i for i in ptFolders if i.name == rt][0]
     
     print('Updating %s...'%ptFolder.name)
     fpath= os.path.join(path, ptFolder.name)
@@ -102,6 +103,8 @@ def NPdownloadNewBoxData(ptID, config, client):
 
 
 def NPdeidentifier(ptID, config):
+    ''' Note, this will overwrite the ecog_catalog and may cause it to lose the
+    Index values. Maybe we should require user input to confirm '''
     
     np_ecog_catalog = NPgetDataPath(ptID, config, 'ecog catalog' );
     np_daily_histogram = NPgetDataPath(ptID, config, 'daily histogram');
@@ -161,6 +164,7 @@ def NPgetDataPath(ptID, config, NPDataName):
         config (dict): config.json dictionary 
         NPDataName (str): NeuroPace File or Folder name (case insensitive)
             possible file/folder names 
+           * Root Folder
            * Ecog Catalog
            * Dat Folder
            * Daily Histogram
@@ -179,6 +183,7 @@ def NPgetDataPath(ptID, config, NPDataName):
     fld = pth.join(config['paths']['RNS_RAW_Folder'], prefix + ' EXTERNAL #PHI')
     
     switcher = {
+        'root folder':      fld,
         'ecog catalog':     pth.join(fld, prefix + '_ECoG_Catalog.csv'),
         'hourly histogram': pth.join(fld, prefix + ' Histograms EXTERNAL #PHI', prefix + '_Histogram_Hourly.csv'),
         'daily histogram':  pth.join(fld, prefix + ' Histograms EXTERNAL #PHI', prefix + '_Histogram_Daily.csv'),
@@ -206,21 +211,28 @@ def NPdat2mat(ptID, config):
     
     AllData = []
     eventIdx = []
+    dneIdx = []
     
     for i_file in range(0,NumberOfFiles):
-              
-        [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
-        dlen = fdata.shape[1]
-        AllData.append(fdata)
-        eventIdx.append(ctr + np.array([0,dlen-1]))
-        ctr = ctr + dlen
+            
+        try:
+            [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
+            dlen = fdata.shape[1]
+            AllData.append(fdata)
+            eventIdx.append(ctr + np.array([0,dlen-1]))
+            ctr = ctr + dlen
+            
+        except (FileNotFoundError):
+            print('File %s not found'%(ecog_df['Filename'][i_file]))
+            dneIdx.appen(i_file)
+            continue
 
     AllData = np.concatenate(AllData, axis = 1)
     AllData = AllData.astype('int16').T
     eventIdx = np.array(eventIdx)
     eventIdx = eventIdx.astype('int32')
 
-    return AllData, eventIdx
+    return AllData, eventIdx, dneIdx
 
 
 def NPdat2mef(ptID, config):
@@ -241,30 +253,37 @@ def NPdat2mef(ptID, config):
         
         fname= ecog_df['Filename'][i_file][0:-4]
         
-        # Create mef subfolder, skip creation if mef folder already exists
-        if pth.isdir(pth.join(dpath, fname)):
-            continue
-       
-        os.mkdir(pth.join(dpath, fname))
-              
-        [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
-        blockSize = round(4000/SAMPLING_RATE)
-        th = 100000
+        try:
+            
+            [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
         
-        for i_chan in range(0,NUM_CHANNELS):
+            # Create mef subfolder, skip creation if mef folder already exists
+            if pth.isdir(pth.join(dpath, fname)):
+                continue
+           
+            os.mkdir(pth.join(dpath, fname))
+                  
+            blockSize = round(4000/SAMPLING_RATE)
+            th = 100000
             
-            chanLabel= '%s_C%d.mef'%(ptID, i_chan+1)
-            
-            print(fdata[i_chan][:])
-            
-            mw = MefWriter(pth.join(dpath, fname, chanLabel), blockSize, SAMPLING_RATE, th)
-            mw.writeData((fdata[i_chan][:]).astype(int), ftime.astype('l'), fdata.shape[1])
-            mw.setInstitution(inst);
-            mw.setSubjectID(ptID);
-            mw.setChannelName(chanLabel[0:-4]);
-            mw.setVoltageConversionFactor(gain);
-            mw.close()  
-    
+            for i_chan in range(0,NUM_CHANNELS):
+                
+                chanLabel= '%s_C%d.mef'%(ptID, i_chan+1)
+                
+                print(fdata[i_chan][:])
+                
+                mw = MefWriter(pth.join(dpath, fname, chanLabel), blockSize, SAMPLING_RATE, th)
+                mw.writeData((fdata[i_chan][:]).astype(int), ftime.astype('l'), fdata.shape[1])
+                mw.setInstitution(inst);
+                mw.setSubjectID(ptID);
+                mw.setChannelName(chanLabel[0:-4]);
+                mw.setVoltageConversionFactor(gain);
+                mw.close()  
+                
+        except(FileNotFoundError):
+            print('File %s not found'%(ecog_df['Filename'][i_file]))
+            continue
+        
     return None
 
 #### Helper Functions #####
@@ -334,7 +353,7 @@ def _checkDatFolderEcogConcordance(ecog_df, NumberOfFiles):
     ecog_df['Raw UTC timestamp'] = pd.to_datetime(ecog_df['Raw UTC timestamp'], format= '%Y-%m-%d %H:%M:%S.%f')
     
     if ecog_df.shape[0] != NumberOfFiles:
-        sys.exit("Error: mismatched number of.dat files and ECoG catalog length")
+        print("Warning: mismatched number of.dat files and ECoG catalog length")
     
     if len(np.unique(ecog_df['Sampling rate'])) > 1:
         sys.exit("Error: Multiple SamplingRates in file")
@@ -351,11 +370,11 @@ def _readDatFile(dataFolderPath, ecog_df):
     # Open up dat_file
     dat_file = pth.join(dataFolderPath, ecog_df['Filename'].item())
     fs = ecog_df['Sampling rate'].item()
-    
+        
     # Note, 512 is mid-rail
     with open(dat_file, 'rb') as fid:
         fdata = np.fromfile(fid, np.int16).reshape((-1, NUM_CHANNELS)).T-512
-    
+              
     # Add data in each channel of fdata array if channel is "ON", zeros if "OFF"
     if ecog_df['Ch 1 enabled'].item()== 'Off':
         fdata = np.insert(fdata, 0, float("nan"), axis=0)

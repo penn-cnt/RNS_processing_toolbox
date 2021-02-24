@@ -46,11 +46,17 @@ def loadDeviceDataFromFiles(pList, config):
        savepath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID);
        
        # Get converted Data and Time vectors 
-       [AllData, eventIdx] = npdh.NPdat2mat(ptID, config)
+       [AllData, eventIdx, dneIdx] = npdh.NPdat2mat(ptID, config)
     
-       #Add in additional metadata
+       #Update (and deidentify) ECoG Catalog:
        catalog_csv= npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
        Ecog_Events = pd.read_csv(catalog_csv);
+       
+       # Remove rows that don't have an associated .dat file
+       if dneIdx:
+           Ecog_Events.drop(index=dneIdx, inplace=True)
+           Ecog_Events.reset_index(drop=True, inplace=True)
+       
        Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Device ID'])
        Ecog_Events['Patient ID']= ptID
        Ecog_Events['Event Start idx'] = [row[0] for row in eventIdx]; 

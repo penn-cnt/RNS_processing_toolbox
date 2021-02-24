@@ -41,6 +41,21 @@ def tst_config(tmpdir):
     
     return tst_config
 
+
+@pytest.fixture
+def ecog_df():
+    ecog_data = [['2020-02-06 02:02:35.964', "12345.dat", 250, "On", "On", "On", "On",
+                 "2020-02-06 02:03:36.000", "2020-02-06 07:03:36.000"],
+                 ['2020-02-06 02:02:35.964', "DNE.dat", 250, "On", "On", "On", "On",
+                 "2020-02-06 02:03:36.000", "2020-02-06 07:03:36.000"]]
+    ecog_df = pd.DataFrame(ecog_data, 
+                           columns=["Timestamp", "Filename","Sampling rate",
+                                          "Ch 1 enabled", "Ch 2 enabled",
+                                          "Ch 3 enabled", "Ch 4 enabled",
+                                          "Raw local timestamp", 
+                                          "Raw UTC timestamp"])
+    return ecog_df
+
         
 
 ## UTILS TESTS ##
@@ -52,7 +67,7 @@ def test_ptIdxLookup(tst_config):
     
 
 ## NPDataHandler TESTS ##
-def test_readDatFile(tmpdir):
+def test_readDatFile(tmpdir, ecog_df):
     
     p = tmpdir.mkdir("test_dats")
     dataIn = np.array([[524,531,526,533,533,524,516,516,521,521,518],
@@ -61,24 +76,22 @@ def test_readDatFile(tmpdir):
                       [491,	493,503,502,502,513,492,496,519,529,526]],
                      dtype=np.int16)
     
-    ecog_data = [['2020-02-06 02:02:35.964', "12345.dat", 250, "On", "On", "On", "On",
-                 "2020-02-06 02:03:36.000", "2020-02-06 07:03:36.000"]]
-    ecog_df = pd.DataFrame(ecog_data, 
-                           columns=["Timestamp", "Filename","Sampling rate",
-                                          "Ch 1 enabled", "Ch 2 enabled",
-                                          "Ch 3 enabled", "Ch 4 enabled",
-                                          "Raw local timestamp", 
-                                          "Raw UTC timestamp"])
-    
     print(p)
     f = open(os.path.join(p,"12345.dat"), 'wb')
     f.write(bytes(dataIn.T.reshape(-1,1)))
     f.close()
     
-    [fdata, ftime, t_conv]= npdh._readDatFile(p, ecog_df)
+    [fdata1, ftime1, t_conv1]= npdh._readDatFile(p, ecog_df[0:1])
+    assert (fdata1 == dataIn-512).all()
+
+def test_readDatFile_empty(tmpdir, ecog_df):
+    p = tmpdir.mkdir("test_dats")
+    
+    with pytest.raises(Exception) as e_info:
+        assert npdh._readDatFile(p, ecog_df[1:2])
     
     
-    assert (fdata == dataIn).all()
+
     
     
 
