@@ -78,8 +78,8 @@ if __name__ == "__main__":
     with open('./config.JSON') as f:
         config= json.load(f); 
         
-    ptList = ['HUP096'] #List patient IDs here
-    ptList = [pt['ID'] for pt in config['patients']]
+    ptList = ['HUP137'] #List patient IDs here
+    # ptList = [pt['ID'] for pt in config['patients']]
     
     if not os.path.exists(config['paths']['RNS_DATA_Folder']):
         os.makedirs(config['paths']['RNS_DATA_Folder'])

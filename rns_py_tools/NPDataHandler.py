@@ -42,7 +42,7 @@ NUM_CHANNELS = 4
 SAMPLING_RATE = 250
 
 
-def NPdownloadNewBoxData(folderID, path, client):
+def NPdownloadNewBoxData(ptID, config, client):
     '''
     Download new NeuroPace data from Box.com
 
@@ -55,47 +55,50 @@ def NPdownloadNewBoxData(folderID, path, client):
         None.
 
     '''
+
+    folderID= config['boxKeys']['Folder_ID']
+    path = config['paths']['RNS_RAW_Folder']
     
     ptFolders = client.folder(folder_id=folderID).get_items()
+    rt = pth.basename(NPgetDataPath(ptID, config, 'root folder'))
+    ptFolder = [i for i in ptFolders.get_items() if i.name == rt][0]
     
-    #For all patients
-    for ptFolder in ptFolders:
-        print('Updating %s...'%ptFolder.name)
-        fpath= os.path.join(path, ptFolder.name)
+    print('Updating %s...'%ptFolder.name)
+    fpath= os.path.join(path, ptFolder.name)
         
-        if not os.path.exists(fpath):
-            _downloadAll(ptFolder.id, path, 0)
-        else:
+    if not os.path.exists(fpath):
+        _downloadAll(ptFolder.id, path, 0, client)
+    else:
+        
+        # Download the CSV catalog and read into variable
+        pat = re.compile('.*ECoG_Catalog.csv')
+        try:
+            ecog_catalog =[item for item in ptFolder.get_items() if pat.match(item.name)][0]
+            output_file = open(os.path.join(fpath, ecog_catalog.name), 'wb')
+            client.file(file_id=ecog_catalog.id).download_to(output_file)
+            output_file.close()
+            print('     Ecog_Catalog updated')
+        except IndexError:
+            print('ECoG_Catalog.csv missing in %s'%(ptFolder.name))
+            return
+        
+        # Download the Histograms
+        try: 
+            rh = re.compile('.*Histograms*')
+            hist_folder =[item for item in ptFolder.get_items() if rh.match(item.name)][0]
+            _downloadAll(hist_folder.id, fpath, 0, client)
+            print('     Histograms updated')
+        except IndexError:
+            print('Histogram Folder missing in %s'%(ptFolder.name))
+            pass
             
-            # Download the CSV catalog and read into variable
-            pat = re.compile('.*ECoG_Catalog.csv')
-            try:
-                ecog_catalog =[item for item in ptFolder.get_items() if pat.match(item.name)][0]
-                output_file = open(os.path.join(fpath, ecog_catalog.name), 'wb')
-                client.file(file_id=ecog_catalog.id).download_to(output_file)
-                output_file.close()
-                print('     Ecog_Catalog updated')
-            except IndexError:
-                print('ECoG_Catalog.csv missing in %s'%(ptFolder.name))
-                continue
-            
-            # Download the Histograms
-            try: 
-                rh = re.compile('.*Histograms*')
-                hist_folder =[item for item in ptFolder.get_items() if rh.match(item.name)][0]
-                _downloadAll(hist_folder.id, fpath, 0)
-                print('     Histograms updated')
-            except IndexError:
-                print('Histogram Folder missing in %s'%(ptFolder.name))
-                pass
-                
-            # Download new Episode Durations files from box that are not local 
-            _helper_downloadNew('.*EpisodeDurations*', ptFolder, fpath)
-            print('     Episode Durations updated')
+        # Download new Episode Durations files from box that are not local 
+        _helper_downloadNew('.*EpisodeDurations*', ptFolder, fpath, client)
+        print('     Episode Durations updated')
 
-            # Download new Data files from box that are not local 
-            _helper_downloadNew('.*Data*', ptFolder, fpath)
-            print('     Dat files updated')
+        # Download new Data files from box that are not local 
+        _helper_downloadNew('.*Data*', ptFolder, fpath, client)
+        print('     Dat files updated')
 
 
 def NPdeidentifier(ptID, config):
