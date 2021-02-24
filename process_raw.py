@@ -51,12 +51,13 @@ def loadDeviceDataFromFiles(pList, config):
        #Add in additional metadata
        catalog_csv= npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
        Ecog_Events = pd.read_csv(catalog_csv);
-       Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Patient ID', 'Device ID'])
+       Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Device ID'])
+       Ecog_Events['Patient ID']= ptID
        Ecog_Events['Event Start idx'] = [row[0] for row in eventIdx]; 
        Ecog_Events['Event End idx'] = [row[1] for row in eventIdx];
        
        # Save updated csv and all events
-       Ecog_Events.to_csv(os.path.join(savepath,'Ecog_Catalog.csv'), index=False)
+       Ecog_Events.to_csv(os.path.join(savepath,'ECoG_Catalog.csv'), index=False)
        
        hdf5storage.savemat(os.path.join(savepath, 'Device_Data.mat'), {"AllData": AllData, "EventIdx":eventIdx}, 
                            format ='7.3', oned_as='column', store_python_metadata=True)
@@ -77,7 +78,8 @@ if __name__ == "__main__":
     with open('./config.JSON') as f:
         config= json.load(f); 
         
-    ptList = ['HUP101'] #List patient IDs here
+    ptList = ['HUP096'] #List patient IDs here
+    ptList = [pt['ID'] for pt in config['patients']]
     
     if not os.path.exists(config['paths']['RNS_DATA_Folder']):
         os.makedirs(config['paths']['RNS_DATA_Folder'])
