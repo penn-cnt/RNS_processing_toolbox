@@ -58,8 +58,10 @@ def loadDeviceDataFromFiles(pList, config):
 
        Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Device ID'])
        Ecog_Events['Patient ID']= ptID
-       Ecog_Events['Event Start idx'] = [row[0] for row in eventIdx]; 
-       Ecog_Events['Event End idx'] = [row[1] for row in eventIdx];
+       
+       # Add event index to ecog_events file, add +1 for matlab 1-indexing
+       Ecog_Events['Event Start idx'] = [row[0]+1 for row in eventIdx]; 
+       Ecog_Events['Event End idx'] = [row[1]+1 for row in eventIdx];
        
               # Save updated csv and all events
        Ecog_Events.to_csv(os.path.join(savepath,'ECoG_Catalog.csv'), index=False)

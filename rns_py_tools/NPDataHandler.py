@@ -251,7 +251,7 @@ def NPdat2mef(ptID, config):
     dpath = pth.join(config['paths']['RNS_DATA_Folder'], ptID, 'mefs/')
     gain = 1; 
  
-    for i_file in range(0,NumberOfFiles):
+    for i_file in range(0,ecog_df.shape[0]):
         
         fname= ecog_df['Filename'][i_file][0:-4]
         
@@ -376,14 +376,15 @@ def _readDatFile(dataFolderPath, ecog_df):
     
     enabled = (ecog_df[['Ch 1 enabled', 'Ch 2 enabled', 
                         'Ch 3 enabled', 'Ch 4 enabled']] == 'On').values.tolist()[0]
-    
+
     num_channels = sum(enabled)
        
     # Note, 512 is mid-rail
     with open(dat_file, 'rb') as fid:
         fdata = np.fromfile(fid, np.int16).reshape((-1, num_channels)).T-512
     
-    # Pad with zeros in each channel of fdata array if channel is "ON", zeros if "OFF"
+
+    # Pad with zeros in each channel of fdata array if channel is "OFF"
     # Note, ideally this would be Nan but python doesn't support Nan integers....
     off_chans = [i for i, x in enumerate(enabled) if x == False]
     for oc in off_chans:

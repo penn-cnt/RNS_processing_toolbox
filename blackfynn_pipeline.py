@@ -10,10 +10,11 @@ with open('./config.JSON') as f:
     config= json.load(f); 
 
 
-def uploadPatientCatalogAnnots(ptID, config):
-	''' Load annotations from ECoG Catalog for all patient indices in ptID_list '''
+def uploadPatientCatalogAnnots(ptList, config):
+    ''' Load annotations from ECoG Catalog for all patient indices in ptID_list '''
 
-	bf_tools.annotate_from_catalog(ptID, config)
+    for ptID in ptList:
+        bf_tools.annotate_from_catalog(ptID, config)
 
 
 def pullPatientAnnots(config, layerName):
@@ -47,6 +48,16 @@ if __name__ == "__main__":
 
     ptList = ['HUP096']
 
-    uploadNewPatient(ptList, config)
+    #Upload new data to blackfynn
+    x = input('Upload new .dat files to Blackfynn (y/n)?: ')
+    if x =='y':
+        uploadNewPatient(ptList, config)
+    
+    # Upload new annotations to Blackfynn
+    x = input('Upload new event annotations to blackfynn (y/n)?: ')
+    if x =='y':
+        uploadPatientCatalogAnnots(ptList, config)
+        
+
         
     
