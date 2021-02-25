@@ -42,7 +42,7 @@ NUM_CHANNELS = 4
 SAMPLING_RATE = 250
 
 
-def NPdownloadNewBoxData(folderID, path, client):
+def NPdownloadNewBoxData(ptID, config, client):
     '''
     Download new NeuroPace data from Box.com
 
@@ -55,50 +55,56 @@ def NPdownloadNewBoxData(folderID, path, client):
         None.
 
     '''
+
+    folderID= config['boxKeys']['Folder_ID']
+    path = config['paths']['RNS_RAW_Folder']
     
     ptFolders = client.folder(folder_id=folderID).get_items()
-    
-    #For all patients
-    for ptFolder in ptFolders:
-        print('Updating %s...'%ptFolder.name)
-        fpath= os.path.join(path, ptFolder.name)
-        
-        if not os.path.exists(fpath):
-            _downloadAll(ptFolder.id, path, 0)
-        else:
-            
-            # Download the CSV catalog and read into variable
-            pat = re.compile('.*ECoG_Catalog.csv')
-            try:
-                ecog_catalog =[item for item in ptFolder.get_items() if pat.match(item.name)][0]
-                output_file = open(os.path.join(fpath, ecog_catalog.name), 'wb')
-                client.file(file_id=ecog_catalog.id).download_to(output_file)
-                output_file.close()
-                print('     Ecog_Catalog updated')
-            except IndexError:
-                print('ECoG_Catalog.csv missing in %s'%(ptFolder.name))
-                continue
-            
-            # Download the Histograms
-            try: 
-                rh = re.compile('.*Histograms*')
-                hist_folder =[item for item in ptFolder.get_items() if rh.match(item.name)][0]
-                _downloadAll(hist_folder.id, fpath, 0)
-                print('     Histograms updated')
-            except IndexError:
-                print('Histogram Folder missing in %s'%(ptFolder.name))
-                pass
-                
-            # Download new Episode Durations files from box that are not local 
-            _helper_downloadNew('.*EpisodeDurations*', ptFolder, fpath)
-            print('     Episode Durations updated')
 
-            # Download new Data files from box that are not local 
-            _helper_downloadNew('.*Data*', ptFolder, fpath)
-            print('     Dat files updated')
+    rt = pth.basename(NPgetDataPath(ptID, config, 'root folder'))
+    ptFolder = [i for i in ptFolders if i.name == rt][0]
+    
+    print('Updating %s...'%ptFolder.name)
+    fpath= os.path.join(path, ptFolder.name)
+        
+    if not os.path.exists(fpath):
+        _downloadAll(ptFolder.id, path, 0, client)
+    else:
+        
+        # Download the CSV catalog and read into variable
+        pat = re.compile('.*ECoG_Catalog.csv')
+        try:
+            ecog_catalog =[item for item in ptFolder.get_items() if pat.match(item.name)][0]
+            output_file = open(os.path.join(fpath, ecog_catalog.name), 'wb')
+            client.file(file_id=ecog_catalog.id).download_to(output_file)
+            output_file.close()
+            print('     Ecog_Catalog updated')
+        except IndexError:
+            print('ECoG_Catalog.csv missing in %s'%(ptFolder.name))
+            return
+        
+        # Download the Histograms
+        try: 
+            rh = re.compile('.*Histograms*')
+            hist_folder =[item for item in ptFolder.get_items() if rh.match(item.name)][0]
+            _downloadAll(hist_folder.id, fpath, 0, client)
+            print('     Histograms updated')
+        except IndexError:
+            print('Histogram Folder missing in %s'%(ptFolder.name))
+            pass
+            
+        # Download new Episode Durations files from box that are not local 
+        _helper_downloadNew('.*EpisodeDurations*', ptFolder, fpath, client)
+        print('     Episode Durations updated')
+
+        # Download new Data files from box that are not local 
+        _helper_downloadNew('.*Data*', ptFolder, fpath, client)
+        print('     Dat files updated')
 
 
 def NPdeidentifier(ptID, config):
+    ''' Note, this will overwrite the ecog_catalog and may cause it to lose the
+    Index values. Maybe we should require user input to confirm '''
     
     np_ecog_catalog = NPgetDataPath(ptID, config, 'ecog catalog' );
     np_daily_histogram = NPgetDataPath(ptID, config, 'daily histogram');
@@ -158,6 +164,7 @@ def NPgetDataPath(ptID, config, NPDataName):
         config (dict): config.json dictionary 
         NPDataName (str): NeuroPace File or Folder name (case insensitive)
             possible file/folder names 
+           * Root Folder
            * Ecog Catalog
            * Dat Folder
            * Daily Histogram
@@ -176,6 +183,7 @@ def NPgetDataPath(ptID, config, NPDataName):
     fld = pth.join(config['paths']['RNS_RAW_Folder'], prefix + ' EXTERNAL #PHI')
     
     switcher = {
+        'root folder':      fld,
         'ecog catalog':     pth.join(fld, prefix + '_ECoG_Catalog.csv'),
         'hourly histogram': pth.join(fld, prefix + ' Histograms EXTERNAL #PHI', prefix + '_Histogram_Hourly.csv'),
         'daily histogram':  pth.join(fld, prefix + ' Histograms EXTERNAL #PHI', prefix + '_Histogram_Daily.csv'),
@@ -186,35 +194,47 @@ def NPgetDataPath(ptID, config, NPDataName):
     return switcher.get(NPDataName.lower(), "File/Folder not found")
 
 
-def dat2vector(dataFolder, catalog_csv):
+def NPdat2mat(ptID, config):
     
+    dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
+    catalog_csv = NPgetDataPath(ptID, config, 'ECoG Catalog')
+
     NumberOfFiles = len(glob.glob(pth.join(dataFolder, "*.dat")));
+    
     ecog_df= pd.read_csv(catalog_csv)
+    ecog_df= ecog_df.drop(columns=['Initials', 'Device ID'])
+    ecog_df['Patient ID']= ptID
 
     _checkDatFolderEcogConcordance(ecog_df, NumberOfFiles)
 
     ctr = 0
     
-    AllTime_UTC = []
     AllData = []
     eventIdx = []
+    dneIdx = []
     
-    for i_file in range(0,NumberOfFiles):
-              
-        [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
-        dlen = fdata.shape[1]
-        AllTime_UTC.append(ftime)
-        eventIdx.append(ctr + np.array([0,dlen-1]))
-        ctr = ctr + dlen
+    for i_file in range(0,ecog_df.shape[0]):
+            
+        try:
+            [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
+            dlen = fdata.shape[1]
+            AllData.append(fdata)
+            eventIdx.append(ctr + np.array([0,dlen-1]))
+            ctr = ctr + dlen
+            
+        except (FileNotFoundError):
+            print('File %s not found'%(ecog_df['Filename'][i_file]))
+            dneIdx.append(i_file)
+            
 
-    AllTime_UTC = np.concatenate(AllTime_UTC)
-    AllTime_UTC = AllTime_UTC.astype('uint64')
     AllData = np.concatenate(AllData, axis = 1)
-    AllData = AllData.astype('uint16')
+    AllData = AllData.astype('int16').T
     eventIdx = np.array(eventIdx)
-    eventIdx = eventIdx.astype('uint32')
+    eventIdx = eventIdx.astype('int32')
 
-    return AllData, AllTime_UTC, eventIdx
+    assert eventIdx.shape[0] == ecog_df.shape[0]-len(dneIdx)
+
+    return AllData, eventIdx, dneIdx
 
 
 def NPdat2mef(ptID, config):
@@ -231,34 +251,41 @@ def NPdat2mef(ptID, config):
     dpath = pth.join(config['paths']['RNS_DATA_Folder'], ptID, 'mefs/')
     gain = 1; 
  
-    for i_file in range(0,NumberOfFiles):
+    for i_file in range(0,ecog_df.shape[0]):
         
         fname= ecog_df['Filename'][i_file][0:-4]
         
-        # Create mef subfolder, skip creation if mef folder already exists
-        if pth.isdir(pth.join(dpath, fname)):
-            continue
-       
-        os.mkdir(pth.join(dpath, fname))
-              
-        [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
-        blockSize = round(4000/SAMPLING_RATE)
-        th = 100000
+        try:
+            
+            [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
         
-        for i_chan in range(0,NUM_CHANNELS):
+            # Create mef subfolder, skip creation if mef folder already exists
+            if pth.isdir(pth.join(dpath, fname)):
+                continue
+           
+            os.mkdir(pth.join(dpath, fname))
+                  
+            blockSize = round(4000/SAMPLING_RATE)
+            th = 100000
             
-            chanLabel= '%s_C%d.mef'%(ptID, i_chan+1)
-            
-            print(fdata[i_chan][:])
-            
-            mw = MefWriter(pth.join(dpath, fname, chanLabel), blockSize, SAMPLING_RATE, th)
-            mw.writeData((fdata[i_chan][:]).astype(int), ftime.astype('l'), fdata.shape[1])
-            mw.setInstitution(inst);
-            mw.setSubjectID(ptID);
-            mw.setChannelName(chanLabel[0:-4]);
-            mw.setVoltageConversionFactor(gain);
-            mw.close()  
-    
+            for i_chan in range(0,NUM_CHANNELS):
+                
+                chanLabel= '%s_C%d.mef'%(ptID, i_chan+1)
+                
+                print(fdata[i_chan][:])
+                
+                mw = MefWriter(pth.join(dpath, fname, chanLabel), blockSize, SAMPLING_RATE, th)
+                mw.writeData((fdata[i_chan][:]).astype(int), ftime.astype('l'), fdata.shape[1])
+                mw.setInstitution(inst);
+                mw.setSubjectID(ptID);
+                mw.setChannelName(chanLabel[0:-4]);
+                mw.setVoltageConversionFactor(gain);
+                mw.close()  
+                
+        except(FileNotFoundError):
+            print('File %s not found'%(ecog_df['Filename'][i_file]))
+            continue
+        
     return None
 
 #### Helper Functions #####
@@ -328,7 +355,8 @@ def _checkDatFolderEcogConcordance(ecog_df, NumberOfFiles):
     ecog_df['Raw UTC timestamp'] = pd.to_datetime(ecog_df['Raw UTC timestamp'], format= '%Y-%m-%d %H:%M:%S.%f')
     
     if ecog_df.shape[0] != NumberOfFiles:
-        sys.exit("Error: mismatched number of.dat files and ECoG catalog length")
+        print("Warning: mismatched number of.dat files (%d) and ECoG catalog length (%d)"%
+            (NumberOfFiles, ecog_df.shape[0]))
     
     if len(np.unique(ecog_df['Sampling rate'])) > 1:
         sys.exit("Error: Multiple SamplingRates in file")
@@ -346,27 +374,27 @@ def _readDatFile(dataFolderPath, ecog_df):
     dat_file = pth.join(dataFolderPath, ecog_df['Filename'].item())
     fs = ecog_df['Sampling rate'].item()
     
-    with open(dat_file, 'rb') as fid:
-        fdata = np.fromfile(fid, np.int16).reshape((-1, NUM_CHANNELS)).T
-    
-    # Add data in each channel of fdata array if channel is "ON", zeros if "OFF"
-    if ecog_df['Ch 1 enabled'].item()== 'Off':
-        fdata = np.insert(fdata, 0, 0, axis=0)
-    if ecog_df['Ch 2 enabled'].item() == 'Off':
-        fdata = np.insert(fdata, 1, 0, axis=0)
-    if ecog_df['Ch 3 enabled'].item() == 'Off':
-        fdata = np.insert(fdata, 2, 0, axis=0)
-    if ecog_df['Ch 4 enabled'].item() == 'Off':
-        fdata = np.insert(fdata, 3, 0, axis=0)
-        
+    enabled = (ecog_df[['Ch 1 enabled', 'Ch 2 enabled', 
+                        'Ch 3 enabled', 'Ch 4 enabled']] == 'On').values.tolist()[0]
 
+    num_channels = sum(enabled)
+       
+    # Note, 512 is mid-rail
+    with open(dat_file, 'rb') as fid:
+        fdata = np.fromfile(fid, np.int16).reshape((-1, num_channels)).T-512
+    
+
+    # Pad with zeros in each channel of fdata array if channel is "OFF"
+    # Note, ideally this would be Nan but python doesn't support Nan integers....
+    off_chans = [i for i, x in enumerate(enabled) if x == False]
+    for oc in off_chans:
+        fdata = np.insert(fdata, oc, 0, axis=0)
+        
     # Get UTC and local trigger times, and timestamp as strings. 
     if isinstance(ecog_df['Raw UTC timestamp'].item(),DT.datetime):
-        print('UTC is datetime')
         raw_UTC_str = ecog_df['Raw UTC timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()
     else: 
         raw_UTC_str = ecog_df['Raw UTC timestamp'].item()
-        print('UTC is str')
         
     if isinstance(ecog_df['Raw local timestamp'].item(), DT.datetime):
         raw_local_str = ecog_df['Raw local timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()

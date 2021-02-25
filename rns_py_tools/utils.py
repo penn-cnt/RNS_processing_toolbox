@@ -10,6 +10,7 @@ Functions in this file:
 
 """
 import datetime as DT
+import os.path as pth
 
 
 def str2dt_usec(s):
@@ -43,6 +44,33 @@ def ptIdxLookup(config, ID_field, ID):
     return ids.index(ID)
 
 
-
+def getDataPath(ptID, config, dataName):
+    '''
+    Returns path to deidentified RNS files or folders
+    
+    Args:
+        ptID (string): Patient ID
+        config (dict): config.json dictionary 
+        NPDataName (str): Deidentified RNS File or Folder name (case insensitive)
+            possible file/folder names: 
+           * Ecog Catalog
+           * Daily Histogram
+           * Hourly Histogram
+           * Episode Durations Folder
+            
+    Returns:
+        string: path to NeuroPace data file or folder
+    '''
+    
+    fld = pth.join(config['paths']['RNS_DATA_Folder'], ptID)
+    
+    switcher = {
+        'ecog catalog':     pth.join(fld, 'ECoG_Catalog.csv'),
+        'hourly histogram': pth.join(fld, ' Histograms', 'Histogram_Hourly.csv'),
+        'daily histogram':  pth.join(fld, ' Histograms', 'Histogram_Daily.csv'),
+        'episode durations folder': pth.join(fld, ' EpisodeDurations')
+            }
+    
+    return switcher.get(dataName.lower(), "File/Folder not found")
     
     
