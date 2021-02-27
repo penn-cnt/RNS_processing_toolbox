@@ -18,7 +18,7 @@ ptList = {config.patients.ID};
 
 for ptID = ptList
     
-    savepath = fullfile(ptPth(ptID{1}, config, 'root'), 'Device_Stim.mat');
+    savepath = ptPth(ptID{1}, config, 'device stim');
     if exist(savepath, 'file'), continue, end % Skip if already exists
     
     disp(ptID) 
@@ -26,7 +26,6 @@ for ptID = ptList
     % load patient specific info:
     ecogT = readtable(ptPth(ptID{1}, config, 'ecog catalog'));
     ecogD = matfile(ptPth(ptID{1}, config, 'device data'));
-    savepath = fullfile(ptPth(ptID{1}, config, 'root'), 'Device_Stim.mat');
     
    % Get Stimulation times and Indices
    [StimStartStopIndex, StimStats]= findStim(ecogD.AllData);

@@ -11,6 +11,7 @@ function path = ptPth(ptID, config, dataName)
         case {'hourly histogram'}, path = fullfile(prefix,'Histograms','Histogram_Hourly.csv');
         case {'daily histogram'}, path = fullfile(prefix,'Histograms','Histogram_Daily.csv'); 
         case {'device data'}, path = fullfile(prefix,'Device_Data.mat');
+        case {'device stim'}, path = fullfile(prefix,'Device_Stim.mat');
         case {'episode durations'}, path = fullfile(prefix,'EpisodeDurations');
         otherwise, path = 'File/Folder not found'
     end
