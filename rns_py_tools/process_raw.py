@@ -16,7 +16,7 @@ import json
 import os
 import pandas as pd
 import hdf5storage
-from rns_py_tools import NPDataHandler as npdh
+from functions import NPDataHandler as npdh
 
 
 def downloadPatientDataFromBox(pList, config):
@@ -82,10 +82,12 @@ def createDeidentifiedFiles(pList, config):
       
 if __name__ == "__main__":
    
-    with open('./config.JSON') as f:
+    with open('../config.JSON') as f:
         config= json.load(f); 
         
     ptList = [pt['ID'] for pt in config['patients']]
+
+    print('Running process_raw.py pipeline with patient list: %s'%ptList)
     
     if not os.path.exists(config['paths']['RNS_DATA_Folder']):
         os.makedirs(config['paths']['RNS_DATA_Folder'])

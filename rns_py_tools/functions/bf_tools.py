@@ -16,7 +16,7 @@ Functions in this file:
 import scipy.io as sio
 from blackfynn import Blackfynn
 from blackfynn.models import TimeSeries
-from rns_py_tools import utils
+from functions import utils
 import glob
 import csv
 import pdb

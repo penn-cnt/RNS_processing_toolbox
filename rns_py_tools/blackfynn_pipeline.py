@@ -2,12 +2,8 @@
 
 import json
 import os
-from rns_py_tools import bf_tools
-from rns_py_tools import NPDataHandler as npdh
-
-
-with open('./config.JSON') as f:
-    config= json.load(f); 
+from functions import bf_tools
+from functions import NPDataHandler as npdh
 
 
 def uploadPatientCatalogAnnots(ptList, config):
@@ -43,10 +39,13 @@ def uploadNewPatient(ptList, config):
 
 if __name__ == "__main__":
    
-    with open('./config.JSON') as f:
+    with open('../config.JSON') as f:
         config= json.load(f)
 
-    ptList = ['HUP096']
+    ptList = [pt['ID'] for pt in config['patients']]
+    ptList = [ptList[3]]
+    
+    print('Running blackfynn_pipeline.py with patient list: %s'%ptList)
 
     #Upload new data to blackfynn
     x = input('Upload new .dat files to Blackfynn (y/n)?: ')

@@ -10,7 +10,7 @@ Functions in this file:
 """
 import matplotlib.pyplot as plt
 import numpy as np
-from rns_py_tools import utils
+from functions import utils
 
 def vis_event(AllData, AllTime, Ecog_Events, datapoints):
     '''
