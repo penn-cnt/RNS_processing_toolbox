@@ -1,4 +1,4 @@
-function vis_event(AllData, AllTime, Ecog_Events, datapoints, options)
+function vis_event(AllData, ecogT, datapoints, options)
 % Display event clips containint data points in data points vector. 
 
 % Example: 
@@ -9,7 +9,8 @@ function vis_event(AllData, AllTime, Ecog_Events, datapoints, options)
 %   AllData- vector of data in microseconds
 %   AllTime- vector of time in microseconds
 %   Ecog_Events- table of patient events
-%   datapoints - vector containing indices or timepoints (in uS) of interest
+%   datapoints - vector containing indices of interest, or Nx2 matrix of
+%   data windows to view
 
 % Output: 
 % returns a subplot of the data clip surrounding each datapoint. The datapoint
@@ -17,33 +18,38 @@ function vis_event(AllData, AllTime, Ecog_Events, datapoints, options)
 
 arguments
     AllData double
-    AllTime double
-    Ecog_Events table
+    ecogT table
     datapoints double
     options.Spacing (1,1) double = 100
 end
 
-datapoints = datapoints(:);
-ld = length(datapoints); 
+if size(AllData,1) ~= 4
+    AllData = AllData';
+end
 
+if isvector(datapoints)
+    datapoints = datapoints(:);
+    windowSetInside = [datapoints, datapoints];
+else
+    windowSetInside = datapoints;
+end
 
-StartIndices = Ecog_Events.EventStartIdx;
-EndIndices = Ecog_Events.EventEndIdx;
+start_ind = ecogT.EventStartIdx;
+end_ind = ecogT.EventEndIdx;
+windowsetOutside = [start_ind, end_ind];
 
-[~, imin] = min(abs(StartIndices - datapoints'));
+[incl_inds] = filterWindows(windowsetOutside, windowSetInside); 
+alldp = datapoints(:);
 
-start_ind = StartIndices(imin)+1;
-end_ind = EndIndices(imin)+1;
-events = Ecog_Events.ECoGTrigger;
-
-
-figure(1); clf; hold on
-for i_d = 1:ld
-    subplot(ld,1,i_d); hold on;
-    plot(datetime(AllTime(start_ind(i_d):end_ind(i_d))/10^6, 'ConvertFrom', 'Posixtime'),...
+disp('Press any key to cycle through visuals')
+for i_d = find(incl_inds)'
+    figure(1); clf;
+    plot(idx2time(ecogT, start_ind(i_d):end_ind(i_d)),...
     AllData(:,start_ind(i_d):end_ind(i_d))'+[1:4]*options.Spacing) 
-    vline(datetime(AllTime(datapoints(i_d))/10^6, 'ConvertFrom', 'Posixtime')); 
-    title(sprintf('Event: %s', events{i_d}))
+    dp = logical((alldp >= start_ind(i_d)).*(alldp <= end_ind(i_d)));
+    vline(idx2time(ecogT, alldp(dp))); 
+    title(sprintf('Event: %s, (%d)', ecogT.ECoGTrigger{i_d}, i_d))
+    pause
 end
 
 

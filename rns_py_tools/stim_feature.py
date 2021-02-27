@@ -17,9 +17,9 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from rns_py_tools import ecog, visualize, utils
+from functions import ecog, visualize, utils
 
-with open('./config.JSON') as f:
+with open('../config.JSON') as f:
     config= json.load(f);
     paths = config['paths']
     

@@ -25,7 +25,7 @@ import re
 import datetime as DT
 import os
 from os import path as pth
-from rns_py_tools import utils as utils
+from functions import utils as utils
 
 import jpype
 import jpype.imports
@@ -33,7 +33,7 @@ import jpype.imports
 
 # Launch the JVM
 if not jpype.isJVMStarted():
-    jpype.startJVM(classpath=['lib/MEF_writer.jar'])
+    jpype.startJVM(classpath=['../lib/MEF_writer.jar'])
     
 from edu.mayo.msel.mefwriter import MefWriter
 

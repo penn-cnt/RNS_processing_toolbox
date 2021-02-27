@@ -13,8 +13,8 @@ import pytest
 import numpy as np
 import pandas as pd
 import os
-from rns_py_tools import utils
-from rns_py_tools import NPDataHandler as npdh
+from functions import utils
+from functions import NPDataHandler as npdh
 
 
 # Set up fixtures
