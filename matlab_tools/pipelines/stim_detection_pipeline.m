@@ -38,7 +38,7 @@ end
 %% Check Stim Indices
 
 % Visually check that stimulations are being detected
-ptID = {'HUP096'};
+ptID = {'HUP127'};
 ecogT = readtable(ptPth(ptID{1}, config, 'ecog catalog'));
 ecogD = matfile(ptPth(ptID{1}, config, 'device data'));
 load(fullfile(ptPth(ptID{1}, config, 'root'), 'Device_Stim.mat'));

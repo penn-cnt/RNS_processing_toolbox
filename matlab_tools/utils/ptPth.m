@@ -1,7 +1,7 @@
 function path = ptPth(ptID, config, dataName)
 % INPUT:
 %   dataName: ecog catalog, hourly histogram, daily histogram, device data,
-%   episode durations
+%   device stim, episode durations
 % OUTPUT: filepath (string)
     prefix = fullfile(config.paths.RNS_DATA_Folder, ptID);
     
@@ -13,7 +13,8 @@ function path = ptPth(ptID, config, dataName)
         case {'device data'}, path = fullfile(prefix,'Device_Data.mat');
         case {'device stim'}, path = fullfile(prefix,'Device_Stim.mat');
         case {'episode durations'}, path = fullfile(prefix,'EpisodeDurations');
-        otherwise, path = 'File/Folder not found'
+        case {'pdms'}, path= fullfile(config.paths.RNS_DATA_Folder, 'PDMS.csv'); 
+        otherwise, path = 'File/Folder not found'; disp(path);
     end
             
             
