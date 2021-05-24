@@ -1,17 +1,16 @@
 function vis_event(AllData, ecogT, datapoints, options)
 % Display event clips containint data points in data points vector. 
-
+%
 % Example: 
-% vis_event(AllData, AllTime, Ecog_Events, datapoints)  %datapoints are indices
+% vis_event(AllData, Ecog_Events, datapoints)  %datapoints are indices
 % vis_event(--, 'Time')                                 %datapoints are timepoints
-
+%
 % Inputs: 
 %   AllData- vector of data in microseconds
-%   AllTime- vector of time in microseconds
 %   Ecog_Events- table of patient events
 %   datapoints - vector containing indices of interest, or Nx2 matrix of
 %   data windows to view
-
+%
 % Output: 
 % returns a subplot of the data clip surrounding each datapoint. The datapoint
 % and trigger point is marked
@@ -20,7 +19,7 @@ arguments
     AllData double
     ecogT table
     datapoints double
-    options.Spacing (1,1) double = 100
+    options.Spacing (1,1) double = 300
 end
 
 if size(AllData,1) ~= 4
