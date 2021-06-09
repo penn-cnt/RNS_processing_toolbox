@@ -1,7 +1,7 @@
 
 
 """
-Blackfynn Interface Tools
+Pennseive Interface Tools
 (RNS Processing Toolbox)
 
 Functions in this file: 
@@ -73,7 +73,7 @@ def annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file):
 
 
 def annotate_from_catalog(ptID, config):
-    ''' package: blackfynn package ID 
+    ''' package: Pennseive package ID 
     ecog_catalog: .csv file from Neuropace '''
         
     i_pt = utils.ptIdxLookup(config, 'ID', ptID)
@@ -136,7 +136,7 @@ def uploadMef(dataset, package, mefFolder):
         package.append_files(mef_file)
 
 
-#TODO, check for Blackfynn agent, if not, agent = false
+#TODO, check for Pennseive agent, if not, agent = false
 #TODO: Only append _new_ .dat files
 #TODO: Perhaps pull all .mef files into one folder and do single upload. 
 def uploadNewDat(tsName, ptID, config):
