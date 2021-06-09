@@ -4,7 +4,9 @@
 Created on Tue Feb 16 14:38:21 2021
 test_pytools.py 
 
-To run: "python -m pytest"
+To run:
+    - cd to 
+    - "python -m pytest"
 
 @author: bscheid
 """
@@ -15,6 +17,7 @@ import pandas as pd
 import os
 from functions import utils
 from functions import NPDataHandler as npdh
+#from pennsieve import Pennsieve
 
 
 # Set up fixtures
@@ -29,14 +32,14 @@ def tst_config(tmpdir):
     tst_config['patients'] =  [{'ID': 'RNS001',
                                 'PDMS_ID': '12345',
                                 'Initials': 'ABC',
-                                'bf_dataset': 'N:dataset:1234-5678-91011',
-                                'bf_package': ' '
+                                'pnsv_dataset': 'N:dataset:1234-5678-91011',
+                                'pnsv_package': ' '
                                 }, 
                                {'ID': 'RNS002',
                                 'PDMS_ID': '97890',
                                 'Initials': 'DEF',
-                                'bf_dataset': 'N:dataset:1234-5678-91011',
-                                'bf_package': ' '
+                                'pnsv_dataset': 'N:dataset:1234-5678-91011',
+                                'pnsv_package': ' '
                                 }]
     
     return tst_config
@@ -91,7 +94,10 @@ def test_readDatFile_empty(tmpdir, ecog_df):
         assert npdh._readDatFile(p, ecog_df[1:2])
     
     
+## Pennsieve Tools TESTS ##
 
+# Test uplooad
+# Test download
     
     
 

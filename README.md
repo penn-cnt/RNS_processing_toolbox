@@ -6,7 +6,7 @@ This repository contains code for processing and analyzing data from the respons
 
 Python > 3.5    
 Matlab > 2018a    
-pennseive == 6.1.2   
+pennsieve == 6.1.2   
 
 ### Set-Up
 
@@ -23,17 +23,17 @@ source env/bin/activate
 pip install -r requirements.txt
 ```
 
-If using pennseive profile following the instructions [here]( https://developer.blackfynn.io/python/latest/quickstart.html), just replace "blackfynn" with "pennseive"
+If using pennsieve profile following the instructions [here]( https://developer.blackfynn.io/python/latest/quickstart.html), just replace "blackfynn" with "pennsieve"
 
 ### Pipelines
 
-- Pennseive pipeline: load data from raw .dat files, load annoataions, download annotations for local processing. 
+- Pennsieve pipeline: load data from raw .dat files, load annoataions, download annotations for local processing. 
 - Matlab pipeline: convert .dat files to .mat files
 
-### bf_tools: Pennseive interface
+### pennsieve_tools: Pennsieve interface
 
-bf_annotator.py: Change the output path, dataset ID, package ID, and name of the annotation layer on Pennseive to pull from.  
-bf_data_interface.py: Adds annotations from an RNS patient's ECoG catalog file to a Pennseive dataset
+pnsv_annotator.py: Change the output path, dataset ID, package ID, and name of the annotation layer on Pennsieve to pull from.  
+pnsv_data_interface.py: Adds annotations from an RNS patient's ECoG catalog file to a Pennsieve dataset
 
 ### conversion
 Tools for converting raw data files (in .dat format) to other formats

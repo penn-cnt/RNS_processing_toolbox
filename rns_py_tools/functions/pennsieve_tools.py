@@ -1,7 +1,7 @@
 
 
 """
-Pennseive Interface Tools
+Pennsieve Interface Tools
 (RNS Processing Toolbox)
 
 Functions in this file: 
@@ -14,8 +14,8 @@ Functions in this file:
 """
 
 import scipy.io as sio
-from blackfynn import Blackfynn
-from blackfynn.models import TimeSeries
+from pennsieve import Pennsieve
+#from blackfynn.models import TimeSeries
 from functions import utils
 import glob
 import csv
@@ -26,10 +26,10 @@ import os
 def pull_annotations(ptID, config, layerName, outputPath):
     
     i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    package = config['patients'][i_pt]['bf_package']
+    package = config['patients'][i_pt]['pnsv_package']
 
-    bf = Blackfynn()
-    ts= bf.get(package)
+    pnsv = Pennsieve()
+    ts= pnsv.get(package)
 
     pdb.set_trace();
 
@@ -51,10 +51,10 @@ def pull_annotations(ptID, config, layerName, outputPath):
 def annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file):
     
     i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    package = config['patients'][i_pt]['bf_package']
+    package = config['patients'][i_pt]['pnsv_package']
 
-    bf = Blackfynn()
-    ts = bf.get(package) # Your package ID here
+    pnsv = Pennsieve()
+    ts = pnsv.get(package) # Your package ID here
     ts.add_layer(newLayer) # Your name for new annotation layer here
     layer = ts.get_layer(newLayer) # Your name for new annotation layer here
 
@@ -73,13 +73,13 @@ def annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file):
 
 
 def annotate_from_catalog(ptID, config):
-    ''' package: Pennseive package ID 
+    ''' package: Pennsieve package ID 
     ecog_catalog: .csv file from Neuropace '''
         
     i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    package = config['patients'][i_pt]['bf_package']
-    bf = Blackfynn()
-    ts=bf.get(package)
+    package = config['patients'][i_pt]['pnsv_package']
+    pnsv = Pennsieve()
+    ts=pnsv.get(package)
     
     ecog_catalog = utils.getDataPath(ptID, config, 'ecog catalog')
 
@@ -123,8 +123,8 @@ def uploadMef(dataset, package, mefFolder):
     ''' Uploads mef files to package. If package is "None", 
     then a new package is created within the dataset '''
 
-    bf = Blackfynn()
-    ds = bf.get_dataset(dataset)
+    pnsv = Pennsieve()
+    ds = pnsv.get_dataset(dataset)
 
 	# Check if single mef file, otherwise upload folder
 
@@ -136,7 +136,7 @@ def uploadMef(dataset, package, mefFolder):
         package.append_files(mef_file)
 
 
-#TODO, check for Pennseive agent, if not, agent = false
+#TODO, check for Pennsieve agent, if not, agent = false
 #TODO: Only append _new_ .dat files
 #TODO: Perhaps pull all .mef files into one folder and do single upload. 
 def uploadNewDat(tsName, ptID, config):
@@ -144,28 +144,28 @@ def uploadNewDat(tsName, ptID, config):
 		then a new package is created within the dataset '''
 
     i_pt= utils.ptIdxLookup(config, 'ID', ptID)    
-    dataset = config['patients'][i_pt]['bf_dataset']
+    dataset = config['patients'][i_pt]['pnsv_dataset']
     
-    bf = Blackfynn()
-    ds = bf.get_dataset(dataset)
-    ts = TimeSeries(tsName)
+    pnsv = Pennsieve()
+    ds = pnsv.get_dataset(dataset)
+#     ts = TimeSeries(tsName)
  
-    dpath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'mefs/')
+#     dpath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'mefs/')
         
-    allMefs = glob.glob(os.path.join(dpath,'*', '*.mef'))
+#     allMefs = glob.glob(os.path.join(dpath,'*', '*.mef'))
     
-    # Check that ts doesn't exist. If not: 
-    ds.add(ts)
-    ctr = 1
+#     # Check that ts doesn't exist. If not: 
+#     ds.add(ts)
+#     ctr = 1
     
-    for x in allMefs:
-        print('Upload %d of %d'%(ctr, len(allMefs)))
-        ts.append_files(x) 
-        ctr = ctr+1
+#     for x in allMefs:
+#         print('Upload %d of %d'%(ctr, len(allMefs)))
+#         ts.append_files(x) 
+#         ctr = ctr+1
 
-# 	# Check if single mef file, otherwise upload folder
-#     if package == None:	
-#         #ds.set_ready()
-    ds.upload(dpath,  recursive=True, display_progress = True)
+# # 	# Check if single mef file, otherwise upload folder
+# #     if package == None:	
+# #         #ds.set_ready()
+#     ds.upload(dpath,  recursive=True, display_progress = True)
 
 
