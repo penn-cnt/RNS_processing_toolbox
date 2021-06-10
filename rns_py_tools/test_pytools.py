@@ -84,14 +84,14 @@ def test_readDatFile(tmpdir, ecog_df):
     f.write(bytes(dataIn.T.reshape(-1,1)))
     f.close()
     
-    [fdata1, ftime1, t_conv1]= npdh._readDatFile(p, ecog_df[0:1])
+    [fdata1, ftime1, t_conv1]= npdh._readDatFile(p, ecog_df.iloc[0])
     assert (fdata1 == dataIn-512).all()
 
 def test_readDatFile_empty(tmpdir, ecog_df):
     p = tmpdir.mkdir("test_dats")
     
     with pytest.raises(Exception) as e_info:
-        assert npdh._readDatFile(p, ecog_df[1:2])
+        assert npdh._readDatFile(p, ecog_df.iloc[1])
     
     
 ## Pennsieve Tools TESTS ##

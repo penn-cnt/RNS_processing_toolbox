@@ -21,9 +21,10 @@ def str2dt_usec(s):
 
 def posix2dt_UTC(psx):
     psx = psx*10**-6
-    if psx.shape == ():
-        return DT.datetime.utcfromtimestamp(psx)
-    utc= [DT.datetime.utcfromtimestamp(x) for x in psx]
+    try:
+        utc= [DT.datetime.utcfromtimestamp(x) for x in psx]
+    except:
+        utc = DT.datetime.utcfromtimestamp(psx)
     return utc
  
 

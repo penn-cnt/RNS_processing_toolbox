@@ -257,7 +257,7 @@ def NPdat2mef(ptID, config):
         
         try:
             
-            [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
+            [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df.iloc[i_file])
         
             # Create mef subfolder, skip creation if mef folder already exists
             if pth.isdir(pth.join(dpath, fname)):
@@ -287,6 +287,66 @@ def NPdat2mef(ptID, config):
             continue
         
     return None
+
+def createLayFile(ecog_row, layPath):
+    '''
+    Creates a lay file corresponding to the .dat file information contained in 
+        the row of the ECoG Catalog
+        
+        Example: 
+            catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
+            ecog_df= pd.read_csv(catalog_csv)
+            ecog_row = ecog_df[:1]
+            
+            createLayFile(ecog_row, /path/to/lay/folder)
+
+    Args:
+        ecog_row (TYPE): A pandas series object representing a row of the ecog_csv file
+        layPath (TYPE): DESCRIPTION.
+
+    Returns:
+        None.
+
+    '''
+    assert isinstance(ecog_row, pd.Series)
+    
+    fname = ecog_row['Filename'][:-4]
+    startTime = utils.posix2dt_UTC(_getTimeStrings(ecog_row)[0])
+
+    
+    f = open(pth.join(layPath,'%s.lay'%fname), "w")
+    
+    #FileInfo Section
+    f.writelines(['[FileInfo]\n',
+                  'File=%s.dat\n'%fname,
+                  'FileType=Interleaved\n',
+                  'SamplingRate=%d\n'%ecog_row['Sampling rate'],
+                  'HeaderLength=0\n',
+                  'Calibration=1.0\n',
+                  'WaveformCount=%d\n'%ecog_row['Waveform count'],
+                  'DataType=0\n\n'
+                  ])
+    
+    #Patient Section
+    f.writelines(['[Patient]\n',
+                  'ID=%s.dat\n'%fname,
+                  'Birthdate=\n',
+                  'Sex=\n',
+                  'TestDate=%s\n'%startTime.strftime("%m/%d/%Y"),
+                  'TestTime=%s\n'%startTime.strftime("%H:%M:%S.%f"),
+                  'Comments1=\n',
+                  'Technician=\n\n'
+                  ])
+    
+    #Channel Section
+    f.writelines(['[ChannelMap]\n','Ch.1=1\n','Ch.2=2\n','Ch.3=3\n','Ch.4=4\n\n'])
+                 
+    #Comments,UserEvents Section
+    f.writelines(['[Comments]\n\n','[UserEvents]\n'])
+    
+    
+    f.close()   
+    
 
 #### Helper Functions #####
 
@@ -368,14 +428,16 @@ def _checkDatFolderEcogConcordance(ecog_df, NumberOfFiles):
         sys.exit("Error: RawUTCTimestamp is not chronological")
         
         
-def _readDatFile(dataFolderPath, ecog_df):
+def _readDatFile(dataFolderPath, ecog_row):
+    
+    assert isinstance(ecog_row, pd.Series)
 
     # Open up dat_file
-    dat_file = pth.join(dataFolderPath, ecog_df['Filename'].item())
-    fs = ecog_df['Sampling rate'].item()
+    dat_file = pth.join(dataFolderPath, ecog_row['Filename'])
+    fs = ecog_row['Sampling rate']
     
-    enabled = (ecog_df[['Ch 1 enabled', 'Ch 2 enabled', 
-                        'Ch 3 enabled', 'Ch 4 enabled']] == 'On').values.tolist()[0]
+    enabled = (ecog_row[['Ch 1 enabled', 'Ch 2 enabled', 
+                        'Ch 3 enabled', 'Ch 4 enabled']] == 'On').values
 
     num_channels = sum(enabled)
        
@@ -391,34 +453,45 @@ def _readDatFile(dataFolderPath, ecog_df):
         fdata = np.insert(fdata, oc, 0, axis=0)
         
     # Get UTC and local trigger times, and timestamp as strings. 
-    if isinstance(ecog_df['Raw UTC timestamp'].item(),DT.datetime):
-        raw_UTC_str = ecog_df['Raw UTC timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()
-    else: 
-        raw_UTC_str = ecog_df['Raw UTC timestamp'].item()
-        
-    if isinstance(ecog_df['Raw local timestamp'].item(), DT.datetime):
-        raw_local_str = ecog_df['Raw local timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()
-    else: 
-        raw_local_str = ecog_df['Raw local timestamp'].item()
-        
-    if isinstance(ecog_df['Timestamp'].item(), DT.datetime):
-        timestamp_str = ecog_df['Timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f").item()
-    else: 
-        timestamp_str = ecog_df['Timestamp'].item()
-        
-        
+    [t_start, t_trigger_UTC, t_trigger_local, t_conversion_usec] = _getTimeStrings(ecog_row)
+    
     # Calculate associated time vector    
     dlen = fdata.shape[1]
     t_vec = np.arange(dlen)/fs*10**6
-    t_trigger_UTC = utils.str2dt_usec(raw_UTC_str)
-    t_trigger_local = utils.str2dt_usec(raw_local_str)
-    t_conversion_usec = t_trigger_UTC - t_trigger_local
-    t_start = utils.str2dt_usec(timestamp_str) + t_conversion_usec 
-    
-    
     ftime = t_start + t_vec
     
     return fdata, ftime, t_conversion_usec
+
+def _getTimeStrings(ecog_df_row):
+    
+    assert isinstance(ecog_df_row, pd.Series)
+    
+        # Get UTC and local trigger times, and timestamp as strings. 
+    if isinstance(ecog_df_row['Raw UTC timestamp'],DT.datetime):
+        raw_UTC_str = ecog_df_row['Raw UTC timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f")
+    else: 
+        raw_UTC_str = ecog_df_row['Raw UTC timestamp']
+        
+    if isinstance(ecog_df_row['Raw local timestamp'], DT.datetime):
+        raw_local_str = ecog_df_row['Raw local timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f")
+    else: 
+        raw_local_str = ecog_df_row['Raw local timestamp']
+        
+    if isinstance(ecog_df_row['Timestamp'], DT.datetime):
+        timestamp_str = ecog_df_row['Timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f")
+    else: 
+        timestamp_str = ecog_df_row['Timestamp']
+        
+        
+    # Calculate associated time vector    
+    t_trigger_UTC = utils.str2dt_usec(raw_UTC_str)
+    t_trigger_local = utils.str2dt_usec(raw_local_str)
+    t_conversion_usec = t_trigger_UTC - t_trigger_local
+    t_start_UTC = utils.str2dt_usec(timestamp_str) + t_conversion_usec 
+    
+    
+    return t_start_UTC, t_trigger_UTC, t_trigger_local, t_conversion_usec
+    
     
 
     
