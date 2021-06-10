@@ -28,15 +28,8 @@ def pullPatientAnnots(config, layerName):
 def uploadNewPatient(ptList, config):
     
     for ptID in ptList:
+        pennsieve_tools.uploadNewDat(ptID, config)
 
-        tsName = ptID
-        # Convert any new .dat files into mef files
-        npdh.NPdat2mef(ptID, config)
-        
-        
-        # Upload mefs to Pennsieve
-        # pennsieve_tools.uploadNewDat(tsName, ptID, config)
-    
 
 if __name__ == "__main__":
    
@@ -44,7 +37,7 @@ if __name__ == "__main__":
         config= json.load(f)
 
     ptList = [pt['ID'] for pt in config['patients']]
-    ptList = [ptList[3]]
+    ptList = [ptList[17]]
     
     print('Running pennsieve_pipeline.py with patient list: %s'%ptList)
 

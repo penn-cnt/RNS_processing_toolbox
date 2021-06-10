@@ -19,9 +19,9 @@ from functions import NPDataHandler as npdh
 from functions import utils
 import pandas as pd
 import datetime as DT
-import glob
 import csv
 import pdb
+import json
 import os
 import shutil
 
@@ -143,12 +143,10 @@ def uploadDatLay(collection, datlay_folder):
     return 0
 
 
-#TODO, check for Pennsieve agent, if not, agent = false
 #TODO: Only append _new_ .dat files
-#TODO: Perhaps pull all .mef files into one folder and do single upload. 
 def uploadNewDat(ptID, config):
-    ''' Uploads mef files to package. If package is "None", 
-		then a new package is created within the dataset '''
+    ''' Uploads new .dat files to patient folder in dataset. All .dat files
+    for a given month are concatenated into a single timeseries '''
 
     i_pt= utils.ptIdxLookup(config, 'ID', ptID)    
     dataset = config['patients'][i_pt]['pnsv_dataset']
@@ -156,17 +154,17 @@ def uploadNewDat(ptID, config):
     pnsv = Pennsieve()
     ds = pnsv.get_dataset(dataset)
     
-    # Get collection for ptID, create one if nonexistant
+    # Get collection for ptID, create one if nonexistent
     collection  = [i for i in ds.items if i.type == 'Collection' and i.name == ptID]
     if not collection:
         collection = ds.create_collection(ptID)
     else: collection = collection[0]
     
 
-    # Get last month of data in collection
-    months = collection.get_items_names()  
+    # Get last year and month of data in collection
+    uploaded = [i.name for i in collection.items if i.type == 'TimeSeries']
+    # parse to last year and last month
     
-    dataFolder = npdh.NPgetDataPath(ptID, config, 'Dat Folder')
     catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
     ecog_df= pd.read_csv(catalog_csv)
     
@@ -174,61 +172,36 @@ def uploadNewDat(ptID, config):
     yrmin= min(y.year for y in utc_dt)
     yrmax = max(y.year for y in utc_dt)
     
+    tmpPath = os.path.join(config['paths']['RNS_RAW_Folder'],'tmp_%s'%ptID)
+    
+    # Overwrite temp folder if existing
+    if os.path.exists(tmpPath):
+        shutil.rmtree(tmpPath)
+    os.makedirs(tmpPath)      
+            
+    # Concatenate .dat files for each month, then upload 
     for yr in range(yrmin,yrmax+1):
         for mon in range (1,13):
             
-            tmpPath = os.path.join(config['paths']['RNS_RAW_Folder'],
-                               'tmp_%s_%d_%d'%(ptID, yr, mon))      
-            
-            # Create tempt folder if not existing
-            if not os.path.exists(tmpPath):
-                os.makedirs(tmpPath)
-            
+            ts_name = '%s_%d_%02d'%(ptID, yr, mon)     
             mon_inds = [i for i, x in enumerate(utc_dt)
                     if x.month == mon and x.year == yr]
+                
+            if mon_inds:
+                npdh.createConcatDatLayFiles(ptID, config,
+                                             ecog_df.iloc[mon_inds],
+                                             ts_name,
+                                             tmpPath)              
+    # Upload folder with monthly datasets
+    collection.upload(tmpPath)
             
-            for i_row in mon_inds:
-                #TODO Copy .dat to temp folder
-                ecog_row = ecog_df.iloc[i_row]
-                datfile = ecog_row['Filename']
-                shutil.copyfile(os.path.join(dataFolder, datfile), 
-                                os.path.join(tmpPath, datfile))
-                npdh.createLayFile(ecog_row, tmpPath)
+    #shutil.rmtree(tmpPath)
                 
             
-            
-
-            
+if __name__ == "__main__":
     
-     
-    # Create a temporary folder for each month
+    with open('../config.JSON') as f:
+        config= json.load(f)
     
+    uploadNewDat('HUP101', config)
     
-    # Copy .dat and create .lay files corresponding to the month (by UTC trigger time)
-    # Upload the folder
-        
-
-    
-    
-    
-#     ts = TimeSeries(tsName)
- 
-#     dpath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'mefs/')
-        
-#     allMefs = glob.glob(os.path.join(dpath,'*', '*.mef'))
-    
-#     # Check that ts doesn't exist. If not: 
-#     ds.add(ts)
-#     ctr = 1
-    
-#     for x in allMefs:
-#         print('Upload %d of %d'%(ctr, len(allMefs)))
-#         ts.append_files(x) 
-#         ctr = ctr+1
-
-# # 	# Check if single mef file, otherwise upload folder
-# #     if package == None:	
-# #         #ds.set_ready()
-#     ds.upload(dpath,  recursive=True, display_progress = True)
-
-

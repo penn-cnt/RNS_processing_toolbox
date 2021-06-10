@@ -216,7 +216,7 @@ def NPdat2mat(ptID, config):
     for i_file in range(0,ecog_df.shape[0]):
             
         try:
-            [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df[i_file:i_file+1])
+            [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df.iloc[[i_file]])
             dlen = fdata.shape[1]
             AllData.append(fdata)
             eventIdx.append(ctr + np.array([0,dlen-1]))
@@ -257,7 +257,7 @@ def NPdat2mef(ptID, config):
         
         try:
             
-            [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df.iloc[i_file])
+            [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df.iloc[[i_file]])
         
             # Create mef subfolder, skip creation if mef folder already exists
             if pth.isdir(pth.join(dpath, fname)):
@@ -288,65 +288,97 @@ def NPdat2mef(ptID, config):
         
     return None
 
-def createLayFile(ecog_row, layPath):
+def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     '''
-    Creates a lay file corresponding to the .dat file information contained in 
-        the row of the ECoG Catalog
+        Creates a .dat and corresponding .lay file that concatenates data from all
+        rows in ecog_df
         
         Example: 
             catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
             ecog_df= pd.read_csv(catalog_csv)
-            ecog_row = ecog_df[:1]
+            ecog_rows = ecog_df[1:10]
             
             createLayFile(ecog_row, /path/to/lay/folder)
 
     Args:
-        ecog_row (TYPE): A pandas series object representing a row of the ecog_csv file
-        layPath (TYPE): DESCRIPTION.
+        ecog_df (TYPE): DESCRIPTION.
+        newFilename (TYPE): DESCRIPTION.
+        newFilePath (TYPE): DESCRIPTION.
 
     Returns:
         None.
 
     '''
-    assert isinstance(ecog_row, pd.Series)
     
-    fname = ecog_row['Filename'][:-4]
-    startTime = utils.posix2dt_UTC(_getTimeStrings(ecog_row)[0])
+    #TODO: handle case where # waveform channels may change... we would have to pad
+    
+    assert isinstance(ecog_df, pd.DataFrame), 'Expected a DataFrame input'
+    
+    
+    dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
+    datfiles= [os.path.join(dataFolder, x) for x in ecog_df['Filename'].tolist()]
+
+    # Check that enabled waveforms are consistent
+    wf = np.sum((ecog_df[['Ch 1 enabled', 'Ch 2 enabled', 'Ch 3 enabled',
+                          'Ch 4 enabled']] == 'On').values, axis=1)
+    
+    assert np.unique(wf).shape[0] == 1, 'Inconsistent number of channels enabled'
+    
+
+    # Concatenate .dat files
+    with open(pth.join(newFilePath,'%s.dat'%newFilename), "wb") as datcat:
+        for f in ecog_df['Filename']:
+            with open(pth.join(dataFolder, f), "rb") as infile:
+                datcat.write(infile.read())
+    
+       
+    dat_fnames = [x[:-4] for x in ecog_df['Filename']]
+    startTimes = _getTimeStrings(ecog_df)[0]
+    startdt = utils.posix2dt_UTC(startTimes[0])
+    
+    # Sample indices corresponding to each .dat segment
+    i_samp = np.cumsum([0]+[int(pth.getsize(x)/2/wf[i]) 
+                            for i, x in enumerate(datfiles)])
 
     
-    f = open(pth.join(layPath,'%s.lay'%fname), "w")
-    
     #FileInfo Section
-    f.writelines(['[FileInfo]\n',
-                  'File=%s.dat\n'%fname,
-                  'FileType=Interleaved\n',
-                  'SamplingRate=%d\n'%ecog_row['Sampling rate'],
-                  'HeaderLength=0\n',
-                  'Calibration=1.0\n',
-                  'WaveformCount=%d\n'%ecog_row['Waveform count'],
-                  'DataType=0\n\n'
-                  ])
+    layframe =['[N_Config_String]\n'
+               'DATFiles=%s.dat\n\n'%dat_fnames,
+        
+              '[FileInfo]\n',
+               'File=%s.dat\n'%newFilename,
+               'FileType=Interleaved\n',
+               'SamplingRate=%d\n'%ecog_df['Sampling rate'].tolist()[0],
+               'HeaderLength=0\n',
+               'Calibration=1.0\n',
+               'WaveformCount=%d\n'%ecog_df['Waveform count'].tolist()[0],
+               'DataType=0\n\n'
+               
+               '[Patient]\n',                                   #Patient Section
+               'ID=%s\n'%ptID,
+               'Birthdate=\n',
+               'Sex=\n',
+               'TestDate=%s\n'%startdt.strftime("%m/%d/%Y"),
+               'TestTime=%s\n'%startdt.strftime("%H:%M:%S.%f"),
+               'Comments1=\n',
+               'Technician=\n\n',
+               
+               '[SampleTimes]\n'
+               ] + ['%d=%0.3f\n'%(x,y/10*10**-6) 
+                    for x,y in zip(i_samp[:-1], startTimes)
+                    ]+[
+                        '\n[ChannelMap]\n',
+                       'Ch.1=1\n',
+                       'Ch.2=2\n',
+                       'Ch.3=3\n',
+                       'Ch.4=4\n\n',
+                       '[Comments]\n\n',
+                       '[UserEvents]\n\n']
     
-    #Patient Section
-    f.writelines(['[Patient]\n',
-                  'ID=%s.dat\n'%fname,
-                  'Birthdate=\n',
-                  'Sex=\n',
-                  'TestDate=%s\n'%startTime.strftime("%m/%d/%Y"),
-                  'TestTime=%s\n'%startTime.strftime("%H:%M:%S.%f"),
-                  'Comments1=\n',
-                  'Technician=\n\n'
-                  ])
     
-    #Channel Section
-    f.writelines(['[ChannelMap]\n','Ch.1=1\n','Ch.2=2\n','Ch.3=3\n','Ch.4=4\n\n'])
-                 
-    #Comments,UserEvents Section
-    f.writelines(['[Comments]\n\n','[UserEvents]\n'])
-    
-    
-    f.close()   
-    
+    with open(pth.join(newFilePath,'%s.lay'%newFilename), "w") as f:
+        f.writelines(layframe)
+         
 
 #### Helper Functions #####
 
@@ -430,14 +462,15 @@ def _checkDatFolderEcogConcordance(ecog_df, NumberOfFiles):
         
 def _readDatFile(dataFolderPath, ecog_row):
     
-    assert isinstance(ecog_row, pd.Series)
+    assert isinstance(ecog_row, pd.DataFrame), 'Expected a DataFrame input.'
+    assert ecog_row.shape[0] == 1, 'Expected a single row'
 
     # Open up dat_file
-    dat_file = pth.join(dataFolderPath, ecog_row['Filename'])
-    fs = ecog_row['Sampling rate']
+    dat_file = pth.join(dataFolderPath, ecog_row['Filename'].item())
+    fs = ecog_row['Sampling rate'].item()
     
     enabled = (ecog_row[['Ch 1 enabled', 'Ch 2 enabled', 
-                        'Ch 3 enabled', 'Ch 4 enabled']] == 'On').values
+                        'Ch 3 enabled', 'Ch 4 enabled']] == 'On').values.tolist()[0]
 
     num_channels = sum(enabled)
        
@@ -460,38 +493,36 @@ def _readDatFile(dataFolderPath, ecog_row):
     t_vec = np.arange(dlen)/fs*10**6
     ftime = t_start + t_vec
     
-    return fdata, ftime, t_conversion_usec
+    return fdata, ftime, t_conversion_usec[0]
 
 def _getTimeStrings(ecog_df_row):
+    '''
+    Args:
+        ecog_df_row (TYPE): pandas Series object
+
+    Returns:
+        t_start_UTC (TYPE): DESCRIPTION.
+        t_trigger_UTC (TYPE): DESCRIPTION.
+        t_trigger_local (TYPE): DESCRIPTION.
+        t_conversion_usec (TYPE): DESCRIPTION.
+
+    '''
     
-    assert isinstance(ecog_df_row, pd.Series)
+    assert isinstance(ecog_df_row, pd.DataFrame), 'Expected a DataFrame input'
     
-        # Get UTC and local trigger times, and timestamp as strings. 
-    if isinstance(ecog_df_row['Raw UTC timestamp'],DT.datetime):
-        raw_UTC_str = ecog_df_row['Raw UTC timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f")
-    else: 
-        raw_UTC_str = ecog_df_row['Raw UTC timestamp']
+    raw_UTC_str = ecog_df_row['Raw UTC timestamp'].tolist()
+    raw_local_str = ecog_df_row['Raw local timestamp'].tolist()
+    timestamp_str = ecog_df_row['Timestamp'].tolist()
         
-    if isinstance(ecog_df_row['Raw local timestamp'], DT.datetime):
-        raw_local_str = ecog_df_row['Raw local timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f")
-    else: 
-        raw_local_str = ecog_df_row['Raw local timestamp']
-        
-    if isinstance(ecog_df_row['Timestamp'], DT.datetime):
-        timestamp_str = ecog_df_row['Timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S.%f")
-    else: 
-        timestamp_str = ecog_df_row['Timestamp']
-        
-        
-    # Calculate associated time vector    
     t_trigger_UTC = utils.str2dt_usec(raw_UTC_str)
     t_trigger_local = utils.str2dt_usec(raw_local_str)
-    t_conversion_usec = t_trigger_UTC - t_trigger_local
-    t_start_UTC = utils.str2dt_usec(timestamp_str) + t_conversion_usec 
-    
+
+    t_conversion_usec = [a - b for a, b in zip(t_trigger_UTC, t_trigger_local)]
+    t_start_UTC = [a + b for a, b in zip(utils.str2dt_usec(timestamp_str), t_conversion_usec)]
+
     
     return t_start_UTC, t_trigger_UTC, t_trigger_local, t_conversion_usec
     
-    
+
 
     

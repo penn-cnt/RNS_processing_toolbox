@@ -14,17 +14,23 @@ import os.path as pth
 
 
 def str2dt_usec(s):
-	dt=DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f")
-	EPOCH = DT.datetime(1970,1,1)
-	return int((dt - EPOCH).total_seconds() * 1000000)
+    EPOCH = DT.datetime(1970,1,1)
+    
+    # Either return list or single usec in posixtime
+    try:
+        dt = [DT.datetime.strptime(x,"%Y-%m-%d %H:%M:%S.%f") for x in s]
+        return [int((x - EPOCH).total_seconds() * 1000000) for x in dt]
+    except:
+        dt= DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f")
+	
+    return int((dt - EPOCH).total_seconds() * 1000000)
 
 
 def posix2dt_UTC(psx):
-    psx = psx*10**-6
     try:
-        utc= [DT.datetime.utcfromtimestamp(x) for x in psx]
+        utc= [DT.datetime.utcfromtimestamp(x*10**-6) for x in psx]
     except:
-        utc = DT.datetime.utcfromtimestamp(psx)
+        utc = DT.datetime.utcfromtimestamp(psx*10**-6)
     return utc
  
 
