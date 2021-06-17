@@ -40,7 +40,7 @@ windowsetOutside = [start_ind, end_ind];
 [incl_inds] = filterWindows(windowsetOutside, windowSetInside); 
 alldp = datapoints(:);
 
-disp('Press any key to cycle through visuals')
+disp('Press enter to cycle through visuals, press q to quit')
 for i_d = find(incl_inds)'
     figure(1); clf;
     plot(idx2time(ecogT, start_ind(i_d):end_ind(i_d)),...
@@ -48,7 +48,12 @@ for i_d = find(incl_inds)'
     dp = logical((alldp >= start_ind(i_d)).*(alldp <= end_ind(i_d)));
     vline(idx2time(ecogT, alldp(dp))); 
     title(sprintf('Event: %s, (%d)', ecogT.ECoGTrigger{i_d}, i_d))
-    pause
+    
+    if i_d ~= find(incl_inds, 1, 'last')
+        x = input('', 's');
+        if strcmp(x, 'q'), break, end
+    end        
+    
 end
 
 

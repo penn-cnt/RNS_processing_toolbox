@@ -47,20 +47,5 @@ AllData = ecogD.AllData;
 
 vis_event(AllData, ecogT, StimStartStopIndex)
 
-%% Example
-
-% Retrive indices of all scheduled events that include or exclude
-% stimulation windows. Filter windows takes two sets of windows (or a set
-% of windows and a vector of points), and returns indices of the first
-% window set that include and exclude the windows or points in the second
-% set.
-
-% Get start and stop indices of all secheduled events
-i_sched = find(strcmp(ecogT.ECoGTrigger, 'Scheduled'));
-evntIdx= ecogT{i_sched, {'EventStartIdx', 'EventEndIdx'}};
-
-[incl, excl] = filterWindows(evntIdx, StimStartStopIndex); 
-
-vis_event(AllData, ecogT, evntIdx(excl))
 
 
