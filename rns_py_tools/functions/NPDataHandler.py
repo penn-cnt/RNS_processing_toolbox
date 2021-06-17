@@ -364,7 +364,7 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
                'Technician=\n\n',
                
                '[SampleTimes]\n'
-               ] + ['%d=%0.3f\n'%(x,y/10*10**-6) 
+               ] + ['%d=%0.3f\n'%(x,y*10**-6) 
                     for x,y in zip(i_samp[:-1], startTimes)
                     ]+[
                         '\n[ChannelMap]\n',
