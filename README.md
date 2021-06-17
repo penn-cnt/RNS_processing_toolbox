@@ -4,13 +4,9 @@ This repository contains code for processing and analyzing data from the respons
 
 Note: This toolbox is very much still in progress and may not be fully tested for all systems. 
 
-### Requirements
-
-Python > 3.5    
-Matlab > 2018a    
-blackfynn == 4.0.0   
 
 Setup instructions and information about using the toolbox can be found in the [project wiki](https://github.com/b-schd/RNS_processing_toolbox/wiki)
+
 
 
 
