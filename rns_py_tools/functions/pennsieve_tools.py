@@ -1,7 +1,7 @@
 
 
 """
-Blackfynn Interface Tools
+Pennsieve Interface Tools
 (RNS Processing Toolbox)
 
 Functions in this file: 
@@ -14,22 +14,25 @@ Functions in this file:
 """
 
 import scipy.io as sio
-from blackfynn import Blackfynn
-from blackfynn.models import TimeSeries
+from pennsieve import Pennsieve
+from functions import NPDataHandler as npdh
 from functions import utils
-import glob
+import pandas as pd
+import datetime as DT
 import csv
 import pdb
+import json
 import os
+import shutil
 
 
 def pull_annotations(ptID, config, layerName, outputPath):
     
     i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    package = config['patients'][i_pt]['bf_package']
+    package = config['patients'][i_pt]['pnsv_package']
 
-    bf = Blackfynn()
-    ts= bf.get(package)
+    pnsv = Pennsieve()
+    ts= pnsv.get(package)
 
     pdb.set_trace();
 
@@ -51,10 +54,10 @@ def pull_annotations(ptID, config, layerName, outputPath):
 def annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file):
     
     i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    package = config['patients'][i_pt]['bf_package']
+    package = config['patients'][i_pt]['pnsv_package']
 
-    bf = Blackfynn()
-    ts = bf.get(package) # Your package ID here
+    pnsv = Pennsieve()
+    ts = pnsv.get(package) # Your package ID here
     ts.add_layer(newLayer) # Your name for new annotation layer here
     layer = ts.get_layer(newLayer) # Your name for new annotation layer here
 
@@ -73,13 +76,13 @@ def annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file):
 
 
 def annotate_from_catalog(ptID, config):
-    ''' package: blackfynn package ID 
+    ''' package: Pennsieve package ID 
     ecog_catalog: .csv file from Neuropace '''
         
     i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    package = config['patients'][i_pt]['bf_package']
-    bf = Blackfynn()
-    ts=bf.get(package)
+    package = config['patients'][i_pt]['pnsv_package']
+    pnsv = Pennsieve()
+    ts = pnsv.get(package)
     
     ecog_catalog = utils.getDataPath(ptID, config, 'ecog catalog')
 
@@ -123,8 +126,8 @@ def uploadMef(dataset, package, mefFolder):
     ''' Uploads mef files to package. If package is "None", 
     then a new package is created within the dataset '''
 
-    bf = Blackfynn()
-    ds = bf.get_dataset(dataset)
+    pnsv = Pennsieve()
+    ds = pnsv.get_dataset(dataset)
 
 	# Check if single mef file, otherwise upload folder
 
@@ -134,38 +137,71 @@ def uploadMef(dataset, package, mefFolder):
 
     for mef_file in mefFolder:
         package.append_files(mef_file)
+        
+
+def uploadDatLay(collection, datlay_folder):
+    return 0
 
 
-#TODO, check for Blackfynn agent, if not, agent = false
 #TODO: Only append _new_ .dat files
-#TODO: Perhaps pull all .mef files into one folder and do single upload. 
-def uploadNewDat(tsName, ptID, config):
-    ''' Uploads mef files to package. If package is "None", 
-		then a new package is created within the dataset '''
+def uploadNewDat(ptID, config):
+    ''' Uploads new .dat files to patient folder in dataset. All .dat files
+    for a given month are concatenated into a single timeseries '''
 
     i_pt= utils.ptIdxLookup(config, 'ID', ptID)    
-    dataset = config['patients'][i_pt]['bf_dataset']
+    dataset = config['patients'][i_pt]['pnsv_dataset']
     
-    bf = Blackfynn()
-    ds = bf.get_dataset(dataset)
-    ts = TimeSeries(tsName)
- 
-    dpath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'mefs/')
-        
-    allMefs = glob.glob(os.path.join(dpath,'*', '*.mef'))
+    pnsv = Pennsieve()
+    ds = pnsv.get_dataset(dataset)
     
-    # Check that ts doesn't exist. If not: 
-    ds.add(ts)
-    ctr = 1
+    # Get collection for ptID, create one if nonexistent
+    collection  = [i for i in ds.items if i.type == 'Collection' and i.name == ptID]
+    if not collection:
+        collection = ds.create_collection(ptID)
+    else: collection = collection[0]
     
-    for x in allMefs:
-        print('Upload %d of %d'%(ctr, len(allMefs)))
-        ts.append_files(x) 
-        ctr = ctr+1
 
-# 	# Check if single mef file, otherwise upload folder
-#     if package == None:	
-#         #ds.set_ready()
-    ds.upload(dpath,  recursive=True, display_progress = True)
-
-
+    # Get last year and month of data in collection
+    uploaded = [i.name for i in collection.items if i.type == 'TimeSeries']
+    # parse to last year and last month
+    
+    catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
+    ecog_df= pd.read_csv(catalog_csv)
+    
+    utc_dt = [DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f") for s in ecog_df['Raw UTC timestamp']]
+    yrmin= min(y.year for y in utc_dt)
+    yrmax = max(y.year for y in utc_dt)
+    
+    tmpPath = os.path.join(config['paths']['RNS_RAW_Folder'],'tmp_%s'%ptID)
+    
+    # Overwrite temp folder if existing
+    if os.path.exists(tmpPath):
+        shutil.rmtree(tmpPath)
+    os.makedirs(tmpPath)      
+            
+    # Concatenate .dat files for each month, then upload 
+    for yr in range(yrmin,yrmax+1):
+        for mon in range (1,13):
+            
+            ts_name = '%s_%d_%02d'%(ptID, yr, mon)     
+            mon_inds = [i for i, x in enumerate(utc_dt)
+                    if x.month == mon and x.year == yr]
+                
+            if mon_inds:
+                npdh.createConcatDatLayFiles(ptID, config,
+                                             ecog_df.iloc[mon_inds],
+                                             ts_name,
+                                             tmpPath)              
+    # Upload folder with monthly datasets
+    collection.upload(tmpPath)
+            
+    #shutil.rmtree(tmpPath)
+                
+            
+if __name__ == "__main__":
+    
+    with open('../config.JSON') as f:
+        config= json.load(f)
+    
+    uploadNewDat('HUP101', config)
+    
