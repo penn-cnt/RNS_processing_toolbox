@@ -319,17 +319,15 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
     datfiles = ecog_df['Filename'].tolist()
     datfiles.sort()
+    datFileCount = len(datfiles)
+    startTimes = []
+    datSizes = []
 
     # Check that enabled waveforms are consistent
     wf = np.sum((ecog_df[['Ch 1 enabled', 'Ch 2 enabled', 'Ch 3 enabled',
                           'Ch 4 enabled']] == 'On').values, axis=1)
 
     assert np.unique(wf).shape[0] == 1, 'Inconsistent number of channels enabled'
-
-    compare_pass = 0
-    datFileCount = len(datfiles)
-    startTimes = []
-    datSizes = []
 
     if datFileCount == 1:
         '''
@@ -347,8 +345,12 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         start_t = rawUTC_t - DateOffset(seconds=ecog_PTL_t)
 
         startTimes.append(start_t)
+        datSizes.append(pth.getsize(single_target))
 
+    compare_pass = 0
     while compare_pass in range(0, datFileCount - 1):
+        print(datfiles)
+        print(compare_pass)
         '''
         Most cases; compares all files in month
         '''
@@ -374,6 +376,13 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
 
         overlapTimeSeconds = pd.Timedelta.total_seconds(total_end - start2)
         overlapTimedelta = pd.Timedelta(total_end - start2)
+        bytes2del = overlapTimeSeconds * 2000
+
+        if bytes2del >= pth.getsize(target2):
+            datfiles.remove(target2_name)
+            datFileCount -= 1
+            continue
+
         if overlapTimeSeconds < 0:
             with open(pth.join(newFilePath, '%s.dat' % newFilename), "ab") as datcat:
                 if compare_pass == 0:
@@ -393,7 +402,6 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
             print('Overlap found, delete? y/n: ')
             x = input()
             if x == 'y':
-                bytes2del = overlapTimeSeconds * 2000
                 start2new = start2 + overlapTimedelta
                 print(bytes2del)
                 print(start1)
