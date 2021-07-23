@@ -20,6 +20,7 @@ Functions in this file:
 import glob
 import numpy as np
 import pandas as pd
+from pandas import DateOffset
 import sys
 import re
 import datetime as DT
@@ -288,16 +289,17 @@ def NPdat2mef(ptID, config):
         
     return None
 
+
 def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     '''
-        Creates a .dat and corresponding .lay file that concatenates data from all
-        rows in ecog_df
-        
-        Example: 
+        Creates a .dat and corresponding .lay file that concatenates data by month, and eliminates any overlap in .dat
+        recordings.
+
+        Example:
             catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
             ecog_df= pd.read_csv(catalog_csv)
             ecog_rows = ecog_df[1:10]
-            
+
             createLayFile(ecog_row, /path/to/lay/folder)
 
     Args:
@@ -309,76 +311,152 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         None.
 
     '''
-    
-    #TODO: handle case where # waveform channels may change... we would have to pad
-    
+
+    # TODO: handle case where # waveform channels may change... we would have to pad
+
     assert isinstance(ecog_df, pd.DataFrame), 'Expected a DataFrame input'
-    
-    
+
     dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
-    datfiles= [os.path.join(dataFolder, x) for x in ecog_df['Filename'].tolist()]
+    datfiles = ecog_df['Filename'].tolist()
+    datfiles.sort()
 
     # Check that enabled waveforms are consistent
     wf = np.sum((ecog_df[['Ch 1 enabled', 'Ch 2 enabled', 'Ch 3 enabled',
                           'Ch 4 enabled']] == 'On').values, axis=1)
-    
+
     assert np.unique(wf).shape[0] == 1, 'Inconsistent number of channels enabled'
-    
 
-    # Concatenate .dat files
-    with open(pth.join(newFilePath,'%s.dat'%newFilename), "wb") as datcat:
-        for f in ecog_df['Filename']:
-            with open(pth.join(dataFolder, f), "rb") as infile:
-                datcat.write(infile.read())
-    
-       
-    dat_fnames = [x[:-4] for x in ecog_df['Filename']]
-    startTimes = _getTimeStrings(ecog_df)[0]
-    startdt = utils.posix2dt_UTC(startTimes[0])
-    
+    compare_pass = 0
+    datFileCount = len(datfiles)
+    startTimes = []
+    datSizes = []
+
+    if datFileCount == 1:
+        '''
+        For edge case where only one recording in a given month
+        '''
+        single_target_name = datfiles[0]
+        single_target = pth.join(dataFolder, single_target_name)
+        with open(pth.join(newFilePath, '%s.dat' % newFilename), "ab") as datcat:
+            with open(single_target, 'rb') as file:
+                datcat.write(file.read())
+
+        rawUTC_t = pd.Timestamp(ecog_df.loc[ecog_df['Filename'] == single_target_name, 'Raw UTC timestamp'].iloc[0])
+        ecog_PTL_t = ecog_df.loc[ecog_df['Filename'] == single_target_name, 'ECoG pre-trigger length'].iloc[0]
+        ecog_L_t = ecog_df.loc[ecog_df['Filename'] == single_target_name, 'ECoG length'].iloc[0]
+        start_t = rawUTC_t - DateOffset(seconds=ecog_PTL_t)
+
+        startTimes.append(start_t)
+
+    while compare_pass in range(0, datFileCount - 1):
+        '''
+        Most cases; compares all files in month
+        '''
+        target1_name = datfiles[compare_pass]
+        target1 = pth.join(dataFolder, target1_name)
+        target2_name = datfiles[compare_pass + 1]
+        target2 = pth.join(dataFolder, target2_name)
+
+        rawUTC1 = pd.Timestamp(ecog_df.loc[ecog_df['Filename'] == target1_name, 'Raw UTC timestamp'].iloc[0])
+        ecog_PTL1 = ecog_df.loc[ecog_df['Filename'] == target1_name, 'ECoG pre-trigger length'].iloc[0]
+        ecog_L1 = ecog_df.loc[ecog_df['Filename'] == target1_name, 'ECoG length'].iloc[0]
+        t2end1 = ecog_L1 - ecog_PTL1
+        start1 = rawUTC1 - DateOffset(seconds=ecog_PTL1)
+        end1 = rawUTC1 + DateOffset(seconds=t2end1)
+
+        rawUTC2 = pd.Timestamp(ecog_df.loc[ecog_df['Filename'] == target2_name, 'Raw UTC timestamp'].iloc[0])
+        ecog_PTL2 = ecog_df.loc[ecog_df['Filename'] == target2_name, 'ECoG pre-trigger length'].iloc[0]
+        start2 = rawUTC2 - DateOffset(seconds=ecog_PTL2)
+        total_end = pd.Timestamp(ecog_df['Raw UTC timestamp'].iloc[0]) - DateOffset(
+            seconds=ecog_df['ECoG pre-trigger length'].iloc[0])
+        if end1 > total_end:
+            total_end = end1
+
+        overlapTimeSeconds = pd.Timedelta.total_seconds(total_end - start2)
+        overlapTimedelta = pd.Timedelta(total_end - start2)
+        if overlapTimeSeconds < 0:
+            with open(pth.join(newFilePath, '%s.dat' % newFilename), "ab") as datcat:
+                if compare_pass == 0:
+                    with open(target1, 'rb') as t1:
+                        datcat.write(t1.read())
+                    startTimes.append(start1)
+                    datSizes.append(pth.getsize(target1))
+                with open(target2, 'rb') as t2:
+                    datcat.write(t2.read())
+                startTimes.append(start2)
+                datSizes.append(pth.getsize(target2))
+            compare_pass += 1
+
+        if overlapTimeSeconds >= 0:
+            print(target1_name)
+            print(target2_name)
+            print('Overlap found, delete? y/n: ')
+            x = input()
+            if x == 'y':
+                bytes2del = overlapTimeSeconds * 2000
+                start2new = start2 + overlapTimedelta
+                print(bytes2del)
+                print(start1)
+                with open(pth.join(newFilePath, '%s.dat' % newFilename), "ab") as datcat:
+                    if compare_pass == 0:
+                        with open(target1, 'rb') as t1:
+                            datcat.write(t1.read())
+                        startTimes.append(start1)
+                        datSizes.append(pth.getsize(target1))
+                    with open(target2, 'rb') as t2:
+                        datcat.write(t2.read()[int(bytes2del):])
+                    startTimes.append(start2new)
+                    datSizes.append(pth.getsize(target2) - int(bytes2del))
+                compare_pass += 1
+            else:
+                exit()
+
+    # Below section creates corresponding .lay file
+
     # Sample indices corresponding to each .dat segment
-    i_samp = np.cumsum([0]+[int(pth.getsize(x)/2/wf[i]) 
-                            for i, x in enumerate(datfiles)])
+    i_samp = np.cumsum([0] + [int(x / 2 / wf[i])
+                              for i, x in enumerate(datSizes)])
 
-    
-    #FileInfo Section
-    layframe =['[N_Config_String]\n'
-               'DATFiles=%s.dat\n\n'%dat_fnames,
-        
-              '[FileInfo]\n',
-               'File=%s.dat\n'%newFilename,
-               'FileType=Interleaved\n',
-               'SamplingRate=%d\n'%ecog_df['Sampling rate'].tolist()[0],
-               'HeaderLength=0\n',
-               'Calibration=1.0\n',
-               'WaveformCount=%d\n'%ecog_df['Waveform count'].tolist()[0],
-               'DataType=0\n\n'
-               
-               '[Patient]\n',                                   #Patient Section
-               'ID=%s\n'%ptID,
-               'Birthdate=\n',
-               'Sex=\n',
-               'TestDate=%s\n'%startdt.strftime("%m/%d/%Y"),
-               'TestTime=%s\n'%startdt.strftime("%H:%M:%S.%f"),
-               'Comments1=\n',
-               'Technician=\n\n',
-               
-               '[SampleTimes]\n'
-               ] + ['%d=%0.3f\n'%(x,y*10**-6) 
-                    for x,y in zip(i_samp[:-1], startTimes)
-                    ]+[
-                        '\n[ChannelMap]\n',
-                       'Ch.1=1\n',
-                       'Ch.2=2\n',
-                       'Ch.3=3\n',
-                       'Ch.4=4\n\n',
-                       '[Comments]\n\n',
-                       '[UserEvents]\n\n']
-    
-    
-    with open(pth.join(newFilePath,'%s.lay'%newFilename), "w") as f:
+    dat_fnames = [x[:-4] for x in ecog_df['Filename']]
+    EPOCH = pd.Timestamp('1970-1-1')
+
+    # FileInfo Section
+    layframe = ['[N_Config_String]\n'
+                'DATFiles=%s.dat\n\n' % dat_fnames,
+
+                '[FileInfo]\n',
+                'File=%s.dat\n' % newFilename,
+                'FileType=Interleaved\n',
+                'SamplingRate=%d\n' % ecog_df['Sampling rate'].tolist()[0],
+                'HeaderLength=0\n',
+                'Calibration=1.0\n',
+                'WaveformCount=%d\n' % ecog_df['Waveform count'].tolist()[0],
+                'DataType=0\n\n'
+
+                '[Patient]\n',  # Patient Section
+                'ID=%s\n' % ptID,
+                'Birthdate=\n',
+                'Sex=\n',
+                'TestDate=%s\n' % startTimes[0].strftime("%m/%d/%Y"),
+                'TestTime=%s\n' % startTimes[0].strftime("%H:%M:%S.%f"),
+                'Comments1=\n',
+                'Technician=\n\n',
+
+                '[SampleTimes]\n'
+                ] + ['%s=%s\n' % (x, pd.Timedelta.total_seconds(y - EPOCH))
+                     for x, y in zip(i_samp[:-1], startTimes)
+                     ] + [
+                   '\n[ChannelMap]\n',
+                   'Ch.1=1\n',
+                   'Ch.2=2\n',
+                   'Ch.3=3\n',
+                   'Ch.4=4\n\n',
+                   '[Comments]\n\n',
+                   '[UserEvents]\n\n']
+
+    with open(pth.join(newFilePath, '%s.lay' % newFilename), "w") as f:
         f.writelines(layframe)
-         
+
 
 #### Helper Functions #####
 
