@@ -320,29 +320,33 @@ def catExporter(ecog_df, datcat, file, overlap=0):
 
 def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     '''
-        Creates a .dat and corresponding .lay file that concatenates data for a given month.
+        Creates a .dat and corresponding .lay file at "newFilePath" that concatenates
+        all data contained in ecog_df.
         Pads off channels and eliminates overlap.
-
-        Example:
-            catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
-            ecog_df= pd.read_csv(catalog_csv)
-            ecog_rows = ecog_df[1:10]
-
-            createLayFile(ecog_row, /path/to/lay/folder)
-
+        
     Args:
-        ecog_df (TYPE): DESCRIPTION.
-        newFilename (TYPE): DESCRIPTION.
-        newFilePath (TYPE): DESCRIPTION.
+        ptID (string): patient ID
+        config (object): config file
+        ecog_df (Pandas dataframe): ecog dataframe containing rows corresponding to data to concatenate
+        newFilename (string): Name for concatenated file (extension should be omitted).
+        newFilePath (string): Path to folder for concatenated output files
 
     Returns:
-        None.
+        dictionary of filenames and # bytes removed from them. 
+
+    Example:
+          catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
+          ecog_df= pd.read_csv(catalog_csv)
+          ecog_rows = ecog_df[1:10]
+          
+          createLayFile(ecog_row, /path/to/lay/folder)
 
     '''
 
     assert isinstance(ecog_df, pd.DataFrame), 'Expected a DataFrame input'
 
-    # General file info variables
+    # General file info variables, 
+    # TODO: sort by start times, not by filenames in case of mismatch. 
     dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
     datcat = pth.join(newFilePath, '%s.dat' % newFilename)
     datfiles = ecog_df['Filename'].tolist()
@@ -368,11 +372,13 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         datSizes.append(pth.getsize(target1))
 
     # Primary loop, compare_pass used to iterate through files
+    rm_bytes = {}
     compare_pass = 0
     while compare_pass in range(0, datFileCount - 1):
 
         # File names and paths vars
-        target1_name = datfiles[compare_pass]
+        #TODO, get info based on sorged ecog_df
+        target1_name = datfiles[compare_pass] 
         target1 = pth.join(dataFolder, target1_name)
         target2_name = datfiles[compare_pass + 1]
         target2 = pth.join(dataFolder, target2_name)
@@ -389,7 +395,11 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         ecog_PTL2 = ecog_df.loc[ecog_df['Filename'] == target2_name, 'ECoG pre-trigger length'].iloc[0]
         start2 = rawUTC2 - DateOffset(seconds=ecog_PTL2)
 
+        assert start1 < start2, 'Start times out of order'
+
         # Uses latest known end
+        # TODO: Why is index 0 hard coded here? total_end shouldn't change, maybe 
+        # this is supposed to be outside the loop?
         total_end = pd.Timestamp(ecog_df['Raw UTC timestamp'].iloc[0]) - DateOffset(
             seconds=ecog_df['ECoG pre-trigger length'].iloc[0])
         if end1 > total_end:
@@ -406,6 +416,13 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         # In the event file is completely overlapped
         if bytes2del >= pth.getsize(target2):
             datfiles.remove(target2_name)
+            
+            bytes2del = pth.getsize(target2)
+            overlapTimeSeconds = bytes2del / 500 / (4 - len(chs2))
+            overlapTimedelta = pd.to_timedelta(overlapTimeSeconds, 's')
+            
+            rm_bytes[target2_name] = bytes2del
+            
             datFileCount -= 1
             continue
 
@@ -425,22 +442,26 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         if overlapTimeSeconds >= 0:
             print(target1_name)
             print(target2_name)
-            print('Overlap found, delete? y/n: ')
-            x = input()
-            if x == 'y':
-                start2new = start2 + overlapTimedelta
-                print(bytes2del)
-                print(start1)
-                if compare_pass == 0:
-                    catExporter(ecog_df, datcat, target1)
-                    startTimes.append(start1)
-                    datSizes.append(pth.getsize(target1))
-                catExporter(ecog_df, datcat, target2, int(bytes2del))
-                startTimes.append(start2new)
-                datSizes.append(pth.getsize(target2) - int(bytes2del))
-                compare_pass += 1
-            else:
-                exit()
+            print('Overlap found, deleting')
+            # print('Overlap found, delete? y/n: ')
+            # x = input()
+            # if x == 'y':
+            start2new = start2 + overlapTimedelta
+            print(bytes2del)
+            print(start1)
+            rm_bytes[target2_name] = bytes2del
+            if compare_pass == 0:
+                catExporter(ecog_df, datcat, target1)
+                startTimes.append(start1)
+                datSizes.append(pth.getsize(target1))
+            catExporter(ecog_df, datcat, target2, int(bytes2del))
+            startTimes.append(start2new)
+            datSizes.append(pth.getsize(target2) - int(bytes2del))
+            compare_pass += 1
+            
+            
+            # else:
+            #     exit()
 
     # Below section creates corresponding .lay file
 
@@ -450,6 +471,8 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
 
     dat_fnames = [x[:-4] for x in ecog_df['Filename']]
     EPOCH = pd.Timestamp('1970-1-1')
+    
+    print(i_samp)
 
     # FileInfo Section
     layframe = ['[N_Config_String]\n'
@@ -487,6 +510,8 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
 
     with open(pth.join(newFilePath, '%s.lay' % newFilename), "w") as f:
         f.writelines(layframe)
+        
+    return rm_bytes
 
 
 #### Helper Functions #####
