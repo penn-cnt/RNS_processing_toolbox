@@ -80,9 +80,14 @@ def annotate_from_catalog(ptID, config):
     ecog_catalog: .csv file from Neuropace '''
         
     i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    package = config['patients'][i_pt]['pnsv_package']
+    dataset = config['patients'][i_pt]['pnsv_dataset']
     pnsv = Pennsieve()
-    ts = pnsv.get(package)
+    ds = pnsv.get_dataset(dataset)
+    collection = ds.get_items_by_name(ptID)[0]
+    
+    #TODO: Get the timeseries corresponding to each month/year, and upload
+    # corresponding annotations to that month. 
+    ts = collection.items[4]
     
     ecog_catalog = utils.getDataPath(ptID, config, 'ecog catalog')
 
@@ -93,13 +98,14 @@ def annotate_from_catalog(ptID, config):
         header=next(reader)
         header[0]=header[0].replace(u'\ufeff', '')
         start_local_i = header.index('Timestamp')			# string ('2015-03-1 08:31:56.969')
-        trig_UTC_i = header.index('Raw UTC timestamp')
-        trig_local_i = header.index('Raw local timestamp')
-        annot_name_i = header.index('ECoG trigger')
-        ecog_len_i = header.index('ECoG length') 		#sec
+        trig_UTC_i = header.index('RawUTCTimestamp')
+        trig_local_i = header.index('RawLocalTimestamp')
+        annot_name_i = header.index('ECoGTrigger')
+        ecog_len_i = header.index('ECoGLength') 		#sec
 
         aNames=[]
         aCtrs=[]
+        
         for row in reader:
 		# Parse datetimes into usec, shift timezone to GMT
             tz_offset= utils.str2dt_usec(row[trig_UTC_i])-utils.str2dt_usec(row[trig_local_i])
