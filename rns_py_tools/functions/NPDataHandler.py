@@ -20,6 +20,7 @@ Functions in this file:
 import glob
 import numpy as np
 import pandas as pd
+from pandas import DateOffset
 import sys
 import re
 import datetime as DT
@@ -288,97 +289,230 @@ def NPdat2mef(ptID, config):
         
     return None
 
+def getOffChs(ecog_df, file):
+    # Helper that returns list of off channels for a given file
+
+    ch = []
+    name = os.path.basename(file)
+    for x in range(1, 5):
+        if ecog_df.loc[ecog_df['Filename'] == name, 'Ch %s enabled' % x].iloc[0] == 'Off':
+            ch.append(x)
+    ch.sort()
+    return ch
+
+
+def catExporter(ecog_df, datcat, file, overlap=0):
+    # Saves a given file to concatenated month file
+    # Pads off channels, last variable is # of bytes overlapping to get rid of (default 0)
+    ch = getOffChs(ecog_df, file)
+    if len(ch) > 0:
+        with open(file, 'rb') as outfile:
+            outfile.seek(overlap)
+            a = np.fromfile(outfile, np.int16).reshape((-1, 4 - len(ch))).T
+        for x in ch:
+            a = np.insert(a, x - 1, 512, axis=0)
+        with open(datcat, 'ab') as infile:
+            a.T.astype(np.int16).tofile(infile)
+    else:
+        with open(datcat, 'ab') as infile:
+            with open(file, 'rb') as outfile:
+                infile.write(outfile.read()[overlap:])
+
 def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     '''
-        Creates a .dat and corresponding .lay file that concatenates data from all
-        rows in ecog_df
+        Creates a .dat and corresponding .lay file at "newFilePath" that concatenates
+        all data contained in ecog_df.
+        Pads off channels and eliminates overlap.
         
-        Example: 
-            catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
-            ecog_df= pd.read_csv(catalog_csv)
-            ecog_rows = ecog_df[1:10]
-            
-            createLayFile(ecog_row, /path/to/lay/folder)
-
     Args:
-        ecog_df (TYPE): DESCRIPTION.
-        newFilename (TYPE): DESCRIPTION.
-        newFilePath (TYPE): DESCRIPTION.
+        ptID (string): patient ID
+        config (object): config file
+        ecog_df (Pandas dataframe): ecog dataframe containing rows corresponding to data to concatenate
+        newFilename (string): Name for concatenated file (extension should be omitted).
+        newFilePath (string): Path to folder for concatenated output files
 
     Returns:
-        None.
+        dictionary of filenames and # bytes removed from them. 
+
+    Example:
+          catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
+          ecog_df= pd.read_csv(catalog_csv)
+          ecog_rows = ecog_df[1:10]
+          
+          createLayFile(ecog_row, /path/to/lay/folder)
 
     '''
-    
-    #TODO: handle case where # waveform channels may change... we would have to pad
-    
+
     assert isinstance(ecog_df, pd.DataFrame), 'Expected a DataFrame input'
-    
-    
+
+    # General file info variables, 
+    # TODO: sort by start times, not by filenames in case of mismatch. 
     dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
-    datfiles= [os.path.join(dataFolder, x) for x in ecog_df['Filename'].tolist()]
+    datcat = pth.join(newFilePath, '%s.dat' % newFilename)
+    datfiles = ecog_df['Filename'].tolist()
+    datfiles.sort()
+    datFileCount = len(datfiles)
 
-    # Check that enabled waveforms are consistent
-    wf = np.sum((ecog_df[['Ch 1 enabled', 'Ch 2 enabled', 'Ch 3 enabled',
-                          'Ch 4 enabled']] == 'On').values, axis=1)
-    
-    assert np.unique(wf).shape[0] == 1, 'Inconsistent number of channels enabled'
-    
+    # Lists are appended and then written to .lay
+    startTimes = []
+    datSizes = []
 
-    # Concatenate .dat files
-    with open(pth.join(newFilePath,'%s.dat'%newFilename), "wb") as datcat:
-        for f in ecog_df['Filename']:
-            with open(pth.join(dataFolder, f), "rb") as infile:
-                datcat.write(infile.read())
-    
-       
-    dat_fnames = [x[:-4] for x in ecog_df['Filename']]
-    startTimes = _getTimeStrings(ecog_df)[0]
-    startdt = utils.posix2dt_UTC(startTimes[0])
-    
+    # For edge case with only one file in a month (while loop won't run as is in range(0, 0)
+    if datFileCount == 1:
+        target1_name = datfiles[0]
+        target1 = pth.join(dataFolder, target1_name)
+
+        catExporter(ecog_df, datcat, target1)
+
+        rawUTC1 = pd.Timestamp(ecog_df.loc[ecog_df['Filename'] == target1_name, 'Raw UTC timestamp'].iloc[0])
+        ecog_PTL1 = ecog_df.loc[ecog_df['Filename'] == target1_name, 'ECoG pre-trigger length'].iloc[0]
+        start1 = rawUTC1 - DateOffset(seconds=ecog_PTL1)
+
+        startTimes.append(start1)
+        datSizes.append(pth.getsize(target1))
+
+    # Primary loop, compare_pass used to iterate through files
+    rm_bytes = {}
+    compare_pass = 0
+    while compare_pass in range(0, datFileCount - 1):
+
+        # File names and paths vars
+        #TODO, get info based on sorged ecog_df
+        target1_name = datfiles[compare_pass] 
+        target1 = pth.join(dataFolder, target1_name)
+        target2_name = datfiles[compare_pass + 1]
+        target2 = pth.join(dataFolder, target2_name)
+
+        # Time vars (could be streamlined but would result in really long definitions)
+        rawUTC1 = pd.Timestamp(ecog_df.loc[ecog_df['Filename'] == target1_name, 'Raw UTC timestamp'].iloc[0])
+        ecog_PTL1 = ecog_df.loc[ecog_df['Filename'] == target1_name, 'ECoG pre-trigger length'].iloc[0]
+        ecog_L1 = ecog_df.loc[ecog_df['Filename'] == target1_name, 'ECoG length'].iloc[0]
+        t2end1 = ecog_L1 - ecog_PTL1
+        start1 = rawUTC1 - DateOffset(seconds=ecog_PTL1)
+        end1 = rawUTC1 + DateOffset(seconds=t2end1)
+
+        rawUTC2 = pd.Timestamp(ecog_df.loc[ecog_df['Filename'] == target2_name, 'Raw UTC timestamp'].iloc[0])
+        ecog_PTL2 = ecog_df.loc[ecog_df['Filename'] == target2_name, 'ECoG pre-trigger length'].iloc[0]
+        start2 = rawUTC2 - DateOffset(seconds=ecog_PTL2)
+
+        assert start1 < start2, 'Start times out of order'
+
+        # Uses latest known end
+        # TODO: Why is index 0 hard coded here? total_end shouldn't change, maybe 
+        # this is supposed to be outside the loop?
+        total_end = pd.Timestamp(ecog_df['Raw UTC timestamp'].iloc[0]) - DateOffset(
+            seconds=ecog_df['ECoG pre-trigger length'].iloc[0])
+        if end1 > total_end:
+            total_end = end1
+
+        # Amount of time overlap (both forms used)
+        overlapTimeSeconds = pd.Timedelta.total_seconds(total_end - start2)
+        overlapTimedelta = pd.Timedelta(total_end - start2)
+
+        # Overlap in bytes based on off chs
+        chs2 = getOffChs(ecog_df, target2_name)
+        bytes2del = overlapTimeSeconds * 500 * (4 - len(chs2))
+
+        # In the event file is completely overlapped
+        if bytes2del >= pth.getsize(target2):
+            datfiles.remove(target2_name)
+            
+            bytes2del = pth.getsize(target2)
+            overlapTimeSeconds = bytes2del / 500 / (4 - len(chs2))
+            overlapTimedelta = pd.to_timedelta(overlapTimeSeconds, 's')
+            
+            rm_bytes[target2_name] = bytes2del
+            
+            datFileCount -= 1
+            continue
+
+        # < 0 as in no overlap, so just sends files to be concatenated
+        if overlapTimeSeconds < 0:
+            if compare_pass == 0:
+                # For first step, where first file needs to be concatenated as well
+                catExporter(ecog_df, datcat, target1)
+                startTimes.append(start1)
+                datSizes.append(pth.getsize(target1))
+            catExporter(ecog_df, datcat, target2)
+            startTimes.append(start2)
+            datSizes.append(pth.getsize(target2))
+            compare_pass += 1
+
+        # In the event that overlap exists, sends files to be concatenated along with amount to drop of second file
+        if overlapTimeSeconds >= 0:
+            print(target1_name)
+            print(target2_name)
+            print('Overlap found, deleting')
+            # print('Overlap found, delete? y/n: ')
+            # x = input()
+            # if x == 'y':
+            start2new = start2 + overlapTimedelta
+            print(bytes2del)
+            print(start1)
+            rm_bytes[target2_name] = bytes2del
+            if compare_pass == 0:
+                catExporter(ecog_df, datcat, target1)
+                startTimes.append(start1)
+                datSizes.append(pth.getsize(target1))
+            catExporter(ecog_df, datcat, target2, int(bytes2del))
+            startTimes.append(start2new)
+            datSizes.append(pth.getsize(target2) - int(bytes2del))
+            compare_pass += 1
+            
+            
+            # else:
+            #     exit()
+
+    # Below section creates corresponding .lay file
+
     # Sample indices corresponding to each .dat segment
-    i_samp = np.cumsum([0]+[int(pth.getsize(x)/2/wf[i]) 
-                            for i, x in enumerate(datfiles)])
+    i_samp = np.cumsum([0] + [int(x / 2 / (4 - len(getOffChs(ecog_df, i))))
+                              for i, x in zip(datfiles, datSizes)])
 
+    dat_fnames = [x[:-4] for x in ecog_df['Filename']]
+    EPOCH = pd.Timestamp('1970-1-1')
     
-    #FileInfo Section
-    layframe =['[N_Config_String]\n'
-               'DATFiles=%s.dat\n\n'%dat_fnames,
-        
-              '[FileInfo]\n',
-               'File=%s.dat\n'%newFilename,
-               'FileType=Interleaved\n',
-               'SamplingRate=%d\n'%ecog_df['Sampling rate'].tolist()[0],
-               'HeaderLength=0\n',
-               'Calibration=1.0\n',
-               'WaveformCount=%d\n'%ecog_df['Waveform count'].tolist()[0],
-               'DataType=0\n\n'
-               
-               '[Patient]\n',                                   #Patient Section
-               'ID=%s\n'%ptID,
-               'Birthdate=\n',
-               'Sex=\n',
-               'TestDate=%s\n'%startdt.strftime("%m/%d/%Y"),
-               'TestTime=%s\n'%startdt.strftime("%H:%M:%S.%f"),
-               'Comments1=\n',
-               'Technician=\n\n',
-               
-               '[SampleTimes]\n'
-               ] + ['%d=%0.3f\n'%(x,y*10**-6) 
-                    for x,y in zip(i_samp[:-1], startTimes)
-                    ]+[
-                        '\n[ChannelMap]\n',
-                       'Ch.1=1\n',
-                       'Ch.2=2\n',
-                       'Ch.3=3\n',
-                       'Ch.4=4\n\n',
-                       '[Comments]\n\n',
-                       '[UserEvents]\n\n']
-    
-    
-    with open(pth.join(newFilePath,'%s.lay'%newFilename), "w") as f:
+    print(i_samp)
+
+    # FileInfo Section
+    layframe = ['[N_Config_String]\n'
+                'DATFiles=%s.dat\n\n' % dat_fnames,
+
+                '[FileInfo]\n',
+                'File=%s.dat\n' % newFilename,
+                'FileType=Interleaved\n',
+                'SamplingRate=%d\n' % ecog_df['Sampling rate'].tolist()[0],
+                'HeaderLength=0\n',
+                'Calibration=1.0\n',
+                'WaveformCount=%d\n' % ecog_df['Waveform count'].tolist()[0],
+                'DataType=0\n\n'
+
+                '[Patient]\n',  # Patient Section
+                'ID=%s\n' % ptID,
+                'Birthdate=\n',
+                'Sex=\n',
+                'TestDate=%s\n' % startTimes[0].strftime("%m/%d/%Y"),
+                'TestTime=%s\n' % startTimes[0].strftime("%H:%M:%S.%f"),
+                'Comments1=\n',
+                'Technician=\n\n',
+
+                '[SampleTimes]\n'
+                ] + ['%s=%s\n' % (x, pd.Timedelta.total_seconds(y - EPOCH))
+                     for x, y in zip(i_samp[:-1], startTimes)
+                     ] + [
+                   '\n[ChannelMap]\n',
+                   'Ch.1=1\n',
+                   'Ch.2=2\n',
+                   'Ch.3=3\n',
+                   'Ch.4=4\n\n',
+                   '[Comments]\n\n',
+                   '[UserEvents]\n\n']
+
+    with open(pth.join(newFilePath, '%s.lay' % newFilename), "w") as f:
         f.writelines(layframe)
-         
+        
+    return rm_bytes
+
 
 #### Helper Functions #####
 
