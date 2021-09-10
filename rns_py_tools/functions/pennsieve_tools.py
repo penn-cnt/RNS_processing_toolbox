@@ -22,6 +22,7 @@ import datetime as DT
 import csv
 import pdb
 import json
+import logging
 import os
 import shutil
 
@@ -153,6 +154,8 @@ def uploadDatLay(collection, datlay_folder):
 def uploadNewDat(ptID, config):
     ''' Uploads new .dat files to patient folder in dataset. All .dat files
     for a given month are concatenated into a single timeseries '''
+    
+    logging.info('Uploading %s data to Pennsieve'%ptID)
 
     i_pt= utils.ptIdxLookup(config, 'ID', ptID)    
     dataset = config['patients'][i_pt]['pnsv_dataset']

@@ -14,10 +14,11 @@ Created on Wed Sep 16 16:43:22 2020
 from boxsdk import Client, OAuth2
 import json
 import os
+import sys
 import pandas as pd
 import hdf5storage
 from functions import NPDataHandler as npdh
-
+import logging
 
 def downloadPatientDataFromBox(pList, config):
     
@@ -86,8 +87,21 @@ if __name__ == "__main__":
         config= json.load(f); 
         
     ptList = [pt['ID'] for pt in config['patients']]
+    
+    # Set up logging
+    logfile = os.path.join(config['paths']['RNS_RAW_Folder'],'logfile.log');
+    
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    
+    logging.basicConfig(filename=logfile, level=logging.INFO)
+ 
+    logger = logging.getLogger()
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
 
-    print('Running process_raw.py pipeline with patient list: %s'%ptList)
+    logging.info('Running process_raw.py pipeline with patient list: %s'%ptList)
     
     if not os.path.exists(config['paths']['RNS_DATA_Folder']):
         os.makedirs(config['paths']['RNS_DATA_Folder'])

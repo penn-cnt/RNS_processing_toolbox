@@ -2,8 +2,9 @@
 
 import json
 import os
+import sys
+import logging
 from functions import pennsieve_tools
-from functions import NPDataHandler as npdh
 
 
 def uploadPatientCatalogAnnots(ptList, config):
@@ -22,7 +23,7 @@ def pullPatientAnnots(config, layerName):
         outputPath = os.path.join(config['paths']['RNS_DATA_Folder'], pt)
         pennsieve_tools.pull_annotations(pt, config, layerName, outputPath)
 		
-        print('Pulling annotations for patient %s'%pt)
+        logging.info('Pulling annotations for patient %s'%pt)
 
 
 def uploadNewPatient(ptList, config):
@@ -37,9 +38,21 @@ if __name__ == "__main__":
         config= json.load(f)
 
     ptList = [pt['ID'] for pt in config['patients']]
-    ptList = [ptList[17]]
     
-    print('Running pennsieve_pipeline.py with patient list: %s'%ptList)
+    # Set up logging
+    logfile = os.path.join(config['paths']['RNS_RAW_Folder'],'logfile.log');
+    
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+  
+    logging.basicConfig(filename=logfile, level=logging.INFO)
+ 
+    logger = logging.getLogger()
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    
+    logging.info('Running pennsieve_pipeline.py with patient list: %s'%ptList)
 
     #Upload new data to Pennsieve
     x = input('Upload new .dat files to Pennsieve (y/n)?: ')
