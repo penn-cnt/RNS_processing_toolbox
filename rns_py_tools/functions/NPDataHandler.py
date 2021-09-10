@@ -25,6 +25,7 @@ import sys
 import re
 import datetime as DT
 import os
+import logging
 from os import path as pth
 from functions import utils as utils
 
@@ -284,7 +285,7 @@ def NPdat2mef(ptID, config):
                 mw.close()  
                 
         except(FileNotFoundError):
-            print('File %s not found'%(ecog_df['Filename'][i_file]))
+            logging.Error('File %s not found'%(ecog_df['Filename'][i_file]))
             continue
         
     return None
@@ -440,28 +441,24 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
 
         # In the event that overlap exists, sends files to be concatenated along with amount to drop of second file
         if overlapTimeSeconds >= 0:
-            print(target1_name)
-            print(target2_name)
-            print('Overlap found, deleting')
-            # print('Overlap found, delete? y/n: ')
-            # x = input()
-            # if x == 'y':
+
+            logging.info('Overlap found, between %s and %s'%(target1_name, target2_name))
+            logging.info('Bytes to delete bytes2del %d, File1 start: %f'%(bytes2del, start1))
+
             start2new = start2 + overlapTimedelta
-            print(bytes2del)
-            print(start1)
+            
             rm_bytes[target2_name] = bytes2del
+            
             if compare_pass == 0:
                 catExporter(ecog_df, datcat, target1)
                 startTimes.append(start1)
                 datSizes.append(pth.getsize(target1))
+                
             catExporter(ecog_df, datcat, target2, int(bytes2del))
             startTimes.append(start2new)
             datSizes.append(pth.getsize(target2) - int(bytes2del))
             compare_pass += 1
-            
-            
-            # else:
-            #     exit()
+
 
     # Below section creates corresponding .lay file
 
