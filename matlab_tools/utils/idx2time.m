@@ -28,7 +28,7 @@ if isvector(idx) && ~iscolumn(idx)
 end
 
 if strcmp(options.timezone, 'UTC')
-    timeconversion = ecogT.RawUTCTimestamp(1)-ecogT.RawLocalTimestamp(1);
+    timeconversion = ecogT.RawUTCTimestamp - ecogT.RawLocalTimestamp;
     times = ecogT.Timestamp + timeconversion;
 else
     times = ecogT.Timestamp;
