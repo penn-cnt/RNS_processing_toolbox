@@ -66,7 +66,7 @@ def NPdownloadNewBoxData(ptID, config, client):
     rt = pth.basename(NPgetDataPath(ptID, config, 'root folder'))
     ptFolder = [i for i in ptFolders if i.name == rt][0]
     
-    print('Updating %s...'%ptFolder.name)
+    logging.info('Updating %s...'%ptFolder.name)
     fpath= os.path.join(path, ptFolder.name)
         
     if not os.path.exists(fpath):
@@ -80,9 +80,9 @@ def NPdownloadNewBoxData(ptID, config, client):
             output_file = open(os.path.join(fpath, ecog_catalog.name), 'wb')
             client.file(file_id=ecog_catalog.id).download_to(output_file)
             output_file.close()
-            print('     Ecog_Catalog updated')
+            logging.info('     Ecog_Catalog updated')
         except IndexError:
-            print('ECoG_Catalog.csv missing in %s'%(ptFolder.name))
+            logging.error('ECoG_Catalog.csv missing in %s'%(ptFolder.name))
             return
         
         # Download the Histograms
@@ -90,18 +90,18 @@ def NPdownloadNewBoxData(ptID, config, client):
             rh = re.compile('.*Histograms*')
             hist_folder =[item for item in ptFolder.get_items() if rh.match(item.name)][0]
             _downloadAll(hist_folder.id, fpath, 0, client)
-            print('     Histograms updated')
+            logging.info('     Histograms updated')
         except IndexError:
-            print('Histogram Folder missing in %s'%(ptFolder.name))
+            logging.error('Histogram Folder missing in %s'%(ptFolder.name))
             pass
             
         # Download new Episode Durations files from box that are not local 
         _helper_downloadNew('.*EpisodeDurations*', ptFolder, fpath, client)
-        print('     Episode Durations updated')
+        logging.info('     Episode Durations updated')
 
         # Download new Data files from box that are not local 
         _helper_downloadNew('.*Data*', ptFolder, fpath, client)
-        print('     Dat files updated')
+        logging.info('     Dat files updated')
 
 
 def NPdeidentifier(ptID, config):
@@ -225,7 +225,7 @@ def NPdat2mat(ptID, config):
             ctr = ctr + dlen
             
         except (FileNotFoundError):
-            print('File %s not found'%(ecog_df['Filename'][i_file]))
+            logging.error('File %s not found'%(ecog_df['Filename'][i_file]))
             dneIdx.append(i_file)
             
 
@@ -274,7 +274,7 @@ def NPdat2mef(ptID, config):
                 
                 chanLabel= '%s_C%d.mef'%(ptID, i_chan+1)
                 
-                print(fdata[i_chan][:])
+                logging.debug(fdata[i_chan][:])
                 
                 mw = MefWriter(pth.join(dpath, fname, chanLabel), blockSize, SAMPLING_RATE, th)
                 mw.writeData((fdata[i_chan][:]).astype(int), ftime.astype('l'), fdata.shape[1])
@@ -344,10 +344,14 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
 
     '''
 
-    assert isinstance(ecog_df, pd.DataFrame), 'Expected a DataFrame input'
+    try:
+        assert isinstance(ecog_df, pd.DataFrame)
+    except AssertionError as err:
+        logging.error('Expected a DataFrame input')
+        raise err
 
     # General file info variables, 
-    # TODO: sort by start times, not by filenames in case of mismatch. 
+    # TODO: sort by starttimes, not by filenames in case of mismatch. 
     dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
     datcat = pth.join(newFilePath, '%s.dat' % newFilename)
     datfiles = ecog_df['Filename'].tolist()
@@ -396,8 +400,15 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         ecog_PTL2 = ecog_df.loc[ecog_df['Filename'] == target2_name, 'ECoG pre-trigger length'].iloc[0]
         start2 = rawUTC2 - DateOffset(seconds=ecog_PTL2)
 
-        assert start1 < start2, 'Start times out of order'
 
+        try:
+            assert start1 < start2
+        except AssertionError as err:
+            logging.error('Start times out of order %s:%s, %s:%s'%(target1_name, 
+                                                                      start1.strftime("%m/%d/%Y, %H:%M:%S"),
+                                                                      target2_name,                                                                     start2.strftime("%m/%d/%Y, %H:%M:%S")))
+            raise err
+        
         # Uses latest known end
         # TODO: Why is index 0 hard coded here? total_end shouldn't change, maybe 
         # this is supposed to be outside the loop?
@@ -443,7 +454,7 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         if overlapTimeSeconds >= 0:
 
             logging.info('Overlap found, between %s and %s'%(target1_name, target2_name))
-            logging.info('Bytes to delete bytes2del %d, File1 start: %f'%(bytes2del, start1))
+            logging.info('Bytes to delete bytes2del %d, File1 start: %s'%(bytes2del, start1.strftime("%m/%d/%Y, %H:%M:%S")))
 
             start2new = start2 + overlapTimedelta
             
@@ -469,7 +480,7 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     dat_fnames = [x[:-4] for x in ecog_df['Filename']]
     EPOCH = pd.Timestamp('1970-1-1')
     
-    print(i_samp)
+    logging.debug(i_samp)
 
     # FileInfo Section
     layframe = ['[N_Config_String]\n'
@@ -526,7 +537,7 @@ def _helper_downloadNew(folder_keyword, parent_folder_box, fpath, client):
         download_inds = [i for i, x in enumerate(box_filenames) if x not in local_filenames]
         ids = [i.id for i in box_fold.get_items()]
         
-        print('Downloading %s new files to %s'%(len(download_inds), local_fold))
+        logging.info('Downloading %s new files to %s'%(len(download_inds), local_fold))
         
         for ind in download_inds:
             output_file= open(os.path.join(fpath, box_fold.name, box_filenames[ind]), 'wb')
@@ -534,7 +545,7 @@ def _helper_downloadNew(folder_keyword, parent_folder_box, fpath, client):
             output_file.close()
     
    except (IndexError, FileNotFoundError):
-       print('Local folder %s not found, downloading all'%(box_fold.name))
+       logging.error('Local folder %s not found, downloading all'%(box_fold.name))
        _downloadAll(box_fold.id, fpath, 0)
        pass
             
@@ -578,7 +589,7 @@ def _checkDatFolderEcogConcordance(ecog_df, NumberOfFiles):
     ecog_df['Raw UTC timestamp'] = pd.to_datetime(ecog_df['Raw UTC timestamp'], format= '%Y-%m-%d %H:%M:%S.%f')
     
     if ecog_df.shape[0] != NumberOfFiles:
-        print("Warning: mismatched number of.dat files (%d) and ECoG catalog length (%d)"%
+        logging.warning("Warning: mismatched number of.dat files (%d) and ECoG catalog length (%d)"%
             (NumberOfFiles, ecog_df.shape[0]))
     
     if len(np.unique(ecog_df['Sampling rate'])) > 1:
