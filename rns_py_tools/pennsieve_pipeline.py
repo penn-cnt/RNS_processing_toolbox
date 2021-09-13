@@ -4,20 +4,24 @@ import json
 import os
 import sys
 import logging
+import traceback
+from pennsieve import Pennsieve
 from functions import pennsieve_tools
 
 
 def uploadPatientCatalogAnnots(ptList, config):
     ''' Load annotations from ECoG Catalog for all patient indices in ptID_list '''
+    
+    pnsv = Pennsieve()
 
     for ptID in ptList:
-        pennsieve_tools.annotate_from_catalog(ptID, config)
+        pennsieve_tools.annotate_from_catalog(ptID, config, pnsv)
 
 
 def pullPatientAnnots(config, layerName):
     '''pull annotatios from layerName for all patients in ptID_list '''
 
-    ptList = [k['ID'] for k in config['patients']]
+    ptList = [['ID'] for k in config['patients']]
 
     for pt in ptList:
         outputPath = os.path.join(config['paths']['RNS_DATA_Folder'], pt)
@@ -28,8 +32,15 @@ def pullPatientAnnots(config, layerName):
 
 def uploadNewPatient(ptList, config):
     
+    pnsv = Pennsieve()
+    
     for ptID in ptList:
-        pennsieve_tools.uploadNewDat(ptID, config)
+        try:
+            pennsieve_tools.uploadNewDat(ptID, config, pnsv)
+        except:
+            logging.error('%s upload failed'%ptID)
+            logging.error(traceback.format_exc())
+            pass
 
 
 if __name__ == "__main__":

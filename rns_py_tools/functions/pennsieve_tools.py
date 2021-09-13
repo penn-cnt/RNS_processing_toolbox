@@ -18,6 +18,7 @@ from pennsieve import Pennsieve
 from functions import NPDataHandler as npdh
 from functions import utils
 import pandas as pd
+import numpy as np
 import datetime as DT
 import csv
 import pdb
@@ -76,91 +77,95 @@ def annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file):
 
 
 
-def annotate_from_catalog(ptID, config):
-    ''' package: Pennsieve package ID 
-    ecog_catalog: .csv file from Neuropace '''
-        
+def annotate_from_catalog(ptID, config, pnsv):
+    ''' Uploads all annotations from ecog_catalog to a patient's data. Does not 
+        upload duplicate annotations, skips upload if a timeseries is not processed. 
+    '''
+    
+    logging.info('Adding annotations from catalog for %s'%ptID)
+    
     i_pt = utils.ptIdxLookup(config, 'ID', ptID)
     dataset = config['patients'][i_pt]['pnsv_dataset']
-    pnsv = Pennsieve()
     ds = pnsv.get_dataset(dataset)
     collection = ds.get_items_by_name(ptID)[0]
     
-    #TODO: Get the timeseries corresponding to each month/year, and upload
-    # corresponding annotations to that month. 
-    ts = collection.items[4]
+    # Error if collection doesn't exist!
     
-    ecog_catalog = utils.getDataPath(ptID, config, 'ecog catalog')
-
-
-    with open(ecog_catalog) as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
-		# Get indices of timestamp, annotation name columns, etc.
-        header=next(reader)
-        header[0]=header[0].replace(u'\ufeff', '')
-        start_local_i = header.index('Timestamp')			# string ('2015-03-1 08:31:56.969')
-        trig_UTC_i = header.index('RawUTCTimestamp')
-        trig_local_i = header.index('RawLocalTimestamp')
-        annot_name_i = header.index('ECoGTrigger')
-        ecog_len_i = header.index('ECoGLength') 		#sec
-
-        aNames=[]
-        aCtrs=[]
+    catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
+    ecog_df= pd.read_csv(catalog_csv)
+    
+    utc_dt = [DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f") for s in ecog_df['Raw UTC timestamp']]
+    
+    # Get the timeseries corresponding to each month/year, and upload
+    # corresponding annotations to that month. 
+    
+    for item in collection.items:
         
-        for row in reader:
-		# Parse datetimes into usec, shift timezone to GMT
-            tz_offset= utils.str2dt_usec(row[trig_UTC_i])-utils.str2dt_usec(row[trig_local_i])
-            start_local= utils.str2dt_usec(row[start_local_i])
-            starttime=start_local+tz_offset
-            endtime=float(row[ecog_len_i])*1000000+starttime
+        # First check that item has been procesed:
+        if not item.state == 'READY':
+            logging.error('Item %s not processed, current status %s'(item.name, item.state))
+            continue
+        
+        # Get event indexes corresponding to year and month
+        [ID, yr, mon] = item.name.split('_')
+        mon_inds = [i for i, x in enumerate(utc_dt)
+                    if x.month == int(mon) and x.year == int(yr)]
+        if mon_inds:
+            trigger_utc_datetime = ecog_df['Raw UTC timestamp'].iloc[mon_inds]
+            trigger_utc = utils.str2dt_usec(trigger_utc_datetime)
+            trigger_local = utils.str2dt_usec(ecog_df['Raw local timestamp'].iloc[mon_inds])
+            start_local =  utils.str2dt_usec(ecog_df['Timestamp'].iloc[mon_inds])
+            ecog_len  =  ecog_df['ECoG length'].iloc[mon_inds]
+            trigger_types = ecog_df['ECoG trigger'].iloc[mon_inds]
 
-			#Increment annotation ctr and add annotation type list
-            try:
-                annotName= row[annot_name_i]
-                aCtrs[aNames.index(annotName)]+=1
-            except:
-                aNames.append(annotName)
-                aCtrs.append(1)
-
-            description= annotName+' '+str(aCtrs[aNames.index(annotName)])+'-- '+row[trig_UTC_i]
-            ts.insert_annotation(annotName, description, start=starttime, end=int(endtime))
-
-        print(annotName, aNames, aCtrs)
-
-
-#TODO, finish 
-def uploadMef(dataset, package, mefFolder):
-    ''' Uploads mef files to package. If package is "None", 
-    then a new package is created within the dataset '''
-
-    pnsv = Pennsieve()
-    ds = pnsv.get_dataset(dataset)
-
-	# Check if single mef file, otherwise upload folder
-
-    if package == None:	
-		# Create new package
-        ds.uplaod(mefFolder(1))
-
-    for mef_file in mefFolder:
-        package.append_files(mef_file)
+            tz_offset = np.subtract(trigger_utc,trigger_local)
+            starttimes = np.add(start_local,tz_offset)
+            endtimes = list(ecog_len*1000000 + starttimes)
+            
+            all_descriptions = [i+' '+str(j)+'--'+k for i, j,k in zip(trigger_types, mon_inds, trigger_utc_datetime)]
+            
+            # only upload descriptions not in current annotation labels to prevent duplicates
+            annotlist = [l.annotations() for l in item.layers]
+            labels = [annot.label for annot in [i for sub in annotlist for i in sub]]
+            descriptions = [i for i in all_descriptions if i not in labels]
+            
+            logging.info('Uploading %d new annotations to %s'%(len(descriptions), item.name))
+            
+            for i_annot in range(0,len(descriptions)):
+                
+                item.insert_annotation(trigger_types.iloc[i_annot], descriptions[i_annot],
+                                       start=int(starttimes[i_annot]), 
+                                       end=int(endtimes[i_annot]))
         
 
 def uploadDatLay(collection, datlay_folder):
     return 0
 
+def processPatientTimeseries(ptIDs, config):
+   
+    pnsv = Pennsieve()
+    
+    for ptID in ptIDs:
+        i_pt = utils.ptIdxLookup(config, 'ID', ptID)
+        dataset = config['patients'][i_pt]['pnsv_dataset']
+        ds = pnsv.get_dataset(dataset)
+        collection = ds.get_items_by_name(ptID)[0]
+        
+        for item in collection.items:
+            pnsv._api.session.put('https://api.pennsieve.io/packages/%s/process'%item.id)
+            
+    
 
 #TODO: Only append _new_ .dat files
-def uploadNewDat(ptID, config):
+def uploadNewDat(ptID, config, pnsv):
     ''' Uploads new .dat files to patient folder in dataset. All .dat files
     for a given month are concatenated into a single timeseries '''
     
-    logging.info('Uploading %s data to Pennsieve'%ptID)
+    logging.info('Consolidating %s data for Pennsieve'%ptID)
 
     i_pt= utils.ptIdxLookup(config, 'ID', ptID)    
     dataset = config['patients'][i_pt]['pnsv_dataset']
     
-    pnsv = Pennsieve()
     ds = pnsv.get_dataset(dataset)
     
     # Get collection for ptID, create one if nonexistent
@@ -200,17 +205,37 @@ def uploadNewDat(ptID, config):
                 npdh.createConcatDatLayFiles(ptID, config,
                                              ecog_df.iloc[mon_inds],
                                              ts_name,
-                                             tmpPath)              
+                                             tmpPath)  
+
     # Upload folder with monthly datasets
-    collection.upload(tmpPath)
+    try:
+        logging.info('Uploading %s data to Pennsieve'%ptID)
+        collection.upload(tmpPath)
+        
+        # Trigger processing of data (might be able to use process method of collection item)
+        for item in collection.items:
+            pnsv._api.session.put('https://api.pennsieve.io/packages/%s/process'%item.id)
             
-    #shutil.rmtree(tmpPath)
+    except:
+        logging.exception('')
+            
+            
+    shutil.rmtree(tmpPath)
                 
             
 if __name__ == "__main__":
     
-    with open('../config.JSON') as f:
+    with open('../config_server.JSON') as f:
         config= json.load(f)
     
-    uploadNewDat('HUP101', config)
+    ptList = [pt['ID'] for pt in config['patients']]
+    
+    #uploadNewDat('HUP101', config)
+    
+    #annotate_from_catalog('HUP1234', config)
+    
+    processPatientTimeseries(ptList, config)
+    
+    
+    
     
