@@ -290,34 +290,6 @@ def NPdat2mef(ptID, config):
         
     return None
 
-def getOffChs(ecog_df, file):
-    # Helper that returns list of off channels for a given file
-
-    ch = []
-    name = os.path.basename(file)
-    for x in range(1, 5):
-        if ecog_df.loc[ecog_df['Filename'] == name, 'Ch %s enabled' % x].iloc[0] == 'Off':
-            ch.append(x)
-    ch.sort()
-    return ch
-
-
-def catExporter(ecog_df, datcat, file, overlap=0):
-    # Saves a given file to concatenated month file
-    # Pads off channels, last variable is # of bytes overlapping to get rid of (default 0)
-    ch = getOffChs(ecog_df, file)
-    if len(ch) > 0:
-        with open(file, 'rb') as outfile:
-            outfile.seek(overlap)
-            a = np.fromfile(outfile, np.int16).reshape((-1, 4 - len(ch))).T
-        for x in ch:
-            a = np.insert(a, x - 1, 512, axis=0)
-        with open(datcat, 'ab') as infile:
-            a.T.astype(np.int16).tofile(infile)
-    else:
-        with open(datcat, 'ab') as infile:
-            with open(file, 'rb') as outfile:
-                infile.write(outfile.read()[overlap:])
 
 def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     '''
@@ -350,24 +322,35 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         logging.error('Expected a DataFrame input')
         raise err
 
+
     # General file info variables, 
-    # TODO: sort by starttimes, not by filenames in case of mismatch. 
     dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
     datcat = pth.join(newFilePath, '%s.dat' % newFilename)
+    
+    # Sort by files by UTC start times
+    start_utc,_,_,_ = _getTimeStrings(ecog_df)
+    srt_inds = np.argsort(start_utc)
     datfiles = ecog_df['Filename'].tolist()
-    datfiles.sort()
+    datfiles = [datfiles[i] for i in srt_inds]
+    
+    # dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
+    # datcat = pth.join(newFilePath, '%s.dat' % newFilename)
+    # datfiles = ecog_df['Filename'].tolist()
+    # datfiles.sort()
+
+
     datFileCount = len(datfiles)
 
     # Lists are appended and then written to .lay
     startTimes = []
     datSizes = []
 
-    # For edge case with only one file in a month (while loop won't run as is in range(0, 0)
+    # For edge case with only one file in a month (while loop won't run as is in range(0, 0))
     if datFileCount == 1:
         target1_name = datfiles[0]
         target1 = pth.join(dataFolder, target1_name)
 
-        catExporter(ecog_df, datcat, target1)
+        _catExporter(ecog_df, datcat, target1)
 
         rawUTC1 = pd.Timestamp(ecog_df.loc[ecog_df['Filename'] == target1_name, 'Raw UTC timestamp'].iloc[0])
         ecog_PTL1 = ecog_df.loc[ecog_df['Filename'] == target1_name, 'ECoG pre-trigger length'].iloc[0]
@@ -382,7 +365,6 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     while compare_pass in range(0, datFileCount - 1):
 
         # File names and paths vars
-        #TODO, get info based on sorged ecog_df
         target1_name = datfiles[compare_pass] 
         target1 = pth.join(dataFolder, target1_name)
         target2_name = datfiles[compare_pass + 1]
@@ -410,8 +392,6 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
             raise err
         
         # Uses latest known end
-        # TODO: Why is index 0 hard coded here? total_end shouldn't change, maybe 
-        # this is supposed to be outside the loop?
         total_end = pd.Timestamp(ecog_df['Raw UTC timestamp'].iloc[0]) - DateOffset(
             seconds=ecog_df['ECoG pre-trigger length'].iloc[0])
         if end1 > total_end:
@@ -422,7 +402,7 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         overlapTimedelta = pd.Timedelta(total_end - start2)
 
         # Overlap in bytes based on off chs
-        chs2 = getOffChs(ecog_df, target2_name)
+        chs2 = _getOffChs(ecog_df, target2_name)
         bytes2del = overlapTimeSeconds * 500 * (4 - len(chs2))
 
         # In the event file is completely overlapped
@@ -442,10 +422,10 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
         if overlapTimeSeconds < 0:
             if compare_pass == 0:
                 # For first step, where first file needs to be concatenated as well
-                catExporter(ecog_df, datcat, target1)
+                _catExporter(ecog_df, datcat, target1)
                 startTimes.append(start1)
                 datSizes.append(pth.getsize(target1))
-            catExporter(ecog_df, datcat, target2)
+            _catExporter(ecog_df, datcat, target2)
             startTimes.append(start2)
             datSizes.append(pth.getsize(target2))
             compare_pass += 1
@@ -461,21 +441,28 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
             rm_bytes[target2_name] = bytes2del
             
             if compare_pass == 0:
-                catExporter(ecog_df, datcat, target1)
+                _catExporter(ecog_df, datcat, target1)
                 startTimes.append(start1)
                 datSizes.append(pth.getsize(target1))
                 
-            catExporter(ecog_df, datcat, target2, int(bytes2del))
+            _catExporter(ecog_df, datcat, target2, int(bytes2del))
             startTimes.append(start2new)
             datSizes.append(pth.getsize(target2) - int(bytes2del))
             compare_pass += 1
 
 
     # Below section creates corresponding .lay file
-
     # Sample indices corresponding to each .dat segment
-    i_samp = np.cumsum([0] + [int(x / 2 / (4 - len(getOffChs(ecog_df, i))))
+
+    # i_samp = np.cumsum([0] + [int(x / 2 / (4 - len(getOffChs(ecog_df, i))))
+    #                           for i, x in zip(datfiles, datSizes)])
+
+    # i_samp = np.cumsum([0]+[int(pth.getsize(x)/2/wf[i]) 
+    #                         for i, x in enumerate(datfiles)])
+
+    i_samp = np.cumsum([0] + [int(x / 2 / (4 - len(_(ecog_df, i))))
                               for i, x in zip(datfiles, datSizes)])
+
 
     dat_fnames = [x[:-4] for x in ecog_df['Filename']]
     EPOCH = pd.Timestamp('1970-1-1')
@@ -664,6 +651,35 @@ def _getTimeStrings(ecog_df_row):
 
     
     return t_start_UTC, t_trigger_UTC, t_trigger_local, t_conversion_usec
+
+def _getOffChs(ecog_df, file):
+    # Helper that returns list of off channels for a given file
+
+    ch = []
+    name = os.path.basename(file)
+    for x in range(1, 5):
+        if ecog_df.loc[ecog_df['Filename'] == name, 'Ch %s enabled' % x].iloc[0] == 'Off':
+            ch.append(x)
+    ch.sort()
+    return ch
+
+
+def _catExporter(ecog_df, datcat, file, overlap=0):
+    # Saves a given file to concatenated month file
+    # Pads off channels, last variable is # of bytes overlapping to get rid of (default 0)
+    ch = _getOffChs(ecog_df, file)
+    if len(ch) > 0:
+        with open(file, 'rb') as outfile:
+            outfile.seek(overlap)
+            a = np.fromfile(outfile, np.int16).reshape((-1, 4 - len(ch))).T
+        for x in ch:
+            a = np.insert(a, x - 1, 512, axis=0)
+        with open(datcat, 'ab') as infile:
+            a.T.astype(np.int16).tofile(infile)
+    else:
+        with open(datcat, 'ab') as infile:
+            with open(file, 'rb') as outfile:
+                infile.write(outfile.read()[overlap:])
     
 
 
