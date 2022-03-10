@@ -18,10 +18,10 @@ def str2dt_usec(s):
     
     # Either return list or single usec in posixtime
     try:
-        dt = [DT.datetime.strptime(x,"%Y-%m-%d %H:%M:%S.%f") for x in s]
+        dt = [DT.datetime.strptime(str(x),"%Y-%m-%d %H:%M:%S.%f") for x in s]
         return [int((x - EPOCH).total_seconds() * 1000000) for x in dt]
     except:
-        dt= DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f")
+        dt= DT.datetime.strptime(str(s),"%Y-%m-%d %H:%M:%S.%f")
 	
     return int((dt - EPOCH).total_seconds() * 1000000)
 
