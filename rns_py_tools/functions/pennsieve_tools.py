@@ -52,29 +52,54 @@ def pull_annotations(ptID, config, layerName, outputPath):
 
 	
 
-# TODO: test this function
-def annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file):
+def annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file, pnsv):
     
     i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    package = config['patients'][i_pt]['pnsv_package']
-
-    pnsv = Pennsieve()
-    ts = pnsv.get(package) # Your package ID here
-    ts.add_layer(newLayer) # Your name for new annotation layer here
-    layer = ts.get_layer(newLayer) # Your name for new annotation layer here
+    dataset = config['patients'][i_pt]['pnsv_dataset']
+    ds = pnsv.get_dataset(dataset)
+    collection = ds.get_items_by_name(ptID)[0]
+    
+    logging.info('Adding annotations to %s layer for %s'%(newLayer, ptID))
 
     annotations = sio.loadmat(annot_mat_file) # Your path to .mat file of timestamps in UTC here (e.g. /home/data/RNS_DataSharing/...)
-    annotations = annotations['timestamps']   # Include this line if MATLAB variable saved to .mat file was called "timestamps"
-    length = len(annotations[0])
+    annots = annotations['annots']  # Get annots, should be stored in posixtime microseconds
+    
+    annots_dt= []
+    annots_dt.append(utils.posix2dt_UTC(annots[:,0]))  # Clunky but I don't know how to do this better... 
+    annots_dt.append(utils.posix2dt_UTC(annots[:,1]))
+    
+    try: 
+         descriptions = annotations['descriptions']
+    except: 
+        descriptions = [newLayer] * len(annots)
 
-    durations = annotations['annotDur']       # duration of annotation (in microseconds)
-    annotationName = annotations['annotName'] # name of label for each annotation
-
-    for x in range(0,length):
-        startTime = annotations.astype(int)[0]
-        layer.insert_annotation(annotationName[x], start=startTime[x],end=startTime[x]+durations[x]) # add 4 hours for time shift; add 1 ms for end time
-        print(x)
-
+    annot_time_str = [DT.datetime.strftime(annot, "%Y-%m-%d %H:%M:%S.%f")[:-3]for annot in annots_dt[0]]
+    annot_str = ['%s-- %s'%(i,j) for i,j in zip(descriptions, annot_time_str)]
+    
+    yrmin= min(y.year for y in annots_dt[0])
+    yrmax = max(y.year for y in annots_dt[1])
+    
+    # Upload annotations to layer
+    for yr in range(yrmin,yrmax+1):
+        for mon in range (1,13):
+            
+            mon_inds = [i for i, x in enumerate(annots_dt[0])
+                    if x.month == mon and x.year == yr]
+            
+            if mon_inds:
+                item = collection.get_items_by_name('%s_%d_%02d'%(ptID, yr, mon))[0]
+                
+                if any([newLayer in i.name for i in item.layers]):
+                    old_labels = [annot.label for annot in item.get_layer(newLayer).annotations()]
+                    new_labels_i = [count for count, i in  enumerate([annot_str[i] for i in mon_inds]) if i not in old_labels]
+                    mon_inds = [mon_inds[i] for i in new_labels_i]
+                
+                logging.info('Uploading %d new annotations to layer %s in %s'%(len(mon_inds), newLayer, item.name))
+                
+                for i in mon_inds:
+                    item.insert_annotation(newLayer, annot_str[i], 
+                                           start = int(round(annots[i,0]/1000, 0)*1000), 
+                                           end = int(round(annots[i,1]/1000, 0)*1000))
 
 
 def annotate_from_catalog(ptID, config, pnsv):
@@ -141,6 +166,7 @@ def annotate_from_catalog(ptID, config, pnsv):
 def uploadDatLay(collection, datlay_folder):
     return 0
 
+
 def processPatientTimeseries(ptIDs, config):
    
     pnsv = Pennsieve()
@@ -152,11 +178,10 @@ def processPatientTimeseries(ptIDs, config):
         collection = ds.get_items_by_name(ptID)[0]
         
         for item in collection.items:
-            pnsv._api.session.put('https://api.pennsieve.io/packages/%s/process'%item.id)
-            
+            if item.state == 'UPLOADED':
+                item.process()            
     
 
-#TODO: Only append _new_ .dat files
 def uploadNewDat(ptID, config, pnsv):
     ''' Uploads new .dat files to patient folder in dataset. All .dat files
     for a given month are concatenated into a single timeseries '''
@@ -165,7 +190,6 @@ def uploadNewDat(ptID, config, pnsv):
 
     i_pt= utils.ptIdxLookup(config, 'ID', ptID)    
     dataset = config['patients'][i_pt]['pnsv_dataset']
-    
     ds = pnsv.get_dataset(dataset)
     
     # Get collection for ptID, create one if nonexistent
@@ -176,7 +200,6 @@ def uploadNewDat(ptID, config, pnsv):
     
 
     # Get last year and month of data in collection
-    uploaded = [i.name for i in collection.items if i.type == 'TimeSeries']
     # parse to last year and last month
     
     catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
@@ -193,28 +216,31 @@ def uploadNewDat(ptID, config, pnsv):
         shutil.rmtree(tmpPath)
     os.makedirs(tmpPath)      
             
-    # Concatenate .dat files for each month, then upload 
+    # Concatenate .dat files for each month if collection doesn't exist, then upload 
     for yr in range(yrmin,yrmax+1):
         for mon in range (1,13):
             
-            ts_name = '%s_%d_%02d'%(ptID, yr, mon)     
+            ts_name = '%s_%d_%02d'%(ptID, yr, mon)
+            
             mon_inds = [i for i, x in enumerate(utc_dt)
                     if x.month == mon and x.year == yr]
                 
-            if mon_inds:
+            if mon_inds and not collection.get_items_by_name('%s_%d_%02d'%(ptID, yr, mon)):
                 npdh.createConcatDatLayFiles(ptID, config,
                                              ecog_df.iloc[mon_inds],
                                              ts_name,
-                                             tmpPath)  
-
+                                             tmpPath)              
     # Upload folder with monthly datasets
+    collection.upload(tmpPath)
+
     try:
         logging.info('Uploading %s data to Pennsieve'%ptID)
         collection.upload(tmpPath)
         
         # Trigger processing of data (might be able to use process method of collection item)
         for item in collection.items:
-            pnsv._api.session.put('https://api.pennsieve.io/packages/%s/process'%item.id)
+            #pnsv._api.session.put('https://api.pennsieve.io/packages/%s/process'%item.id)
+            item.process()
             
     except:
         logging.exception('')
@@ -227,15 +253,20 @@ if __name__ == "__main__":
     
     with open('../config_server.JSON') as f:
         config= json.load(f)
-    
-    ptList = [pt['ID'] for pt in config['patients']]
+
+    #ptList = [pt['ID'] for pt in config['patients']]
     
     #uploadNewDat('HUP101', config)
     
-    #annotate_from_catalog('HUP1234', config)
+    #annotate_from_catalog('HUP059', config)
     
-    processPatientTimeseries(ptList, config)
+    #processPatientTimeseries(ptList, config)
     
+    pnsv = Pennsieve()
     
-    
+    ptID = 'HUP096'
+    annot_mat_file = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'Annotations', 'BL Marked Seizures_annots.mat')
+    newLayer = 'GOLD_STANDARD_SEIZURES_BL'
+    annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file, pnsv)
+
     
