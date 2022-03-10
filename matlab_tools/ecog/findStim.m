@@ -1,4 +1,4 @@
-function [StimStartStopIndex, stats] = findStim(AllData, varargin)
+function [StimStartStopIndex, stats] = findStim(AllData, Min, Channel, show)
 % findStim finds the Stimulation Group periods in Neuropace RNS timeseries data
 %
 %   To use default Channel=1, Min=15, show = false
@@ -37,20 +37,12 @@ function [StimStartStopIndex, stats] = findStim(AllData, varargin)
 %   Updated Brittany Scheid (bscheid@seas.upenn.edu) February 2021
 
 %% Variable Input Defaults
-%Instantiate inputParser
-p = inputParser;
-
-%Define minimum number of consecutive 0 slope points to make up Stimulation
-addRequired(p,'AllData')
-addParameter(p, 'Min',15)
-addParameter(p, 'Channel',1)
-addParameter(p, 'show', false)
-
-%Parse inputs
-parse(p, AllData, varargin{:})
-Min=p.Results.Min;
-Channel=p.Results.Channel;
-show = p.Results.show; 
+arguments
+    AllData
+    Min = 15     % min # of consecutive 0 slope points to make up Stimulation
+    Channel = 1  % channel to make detections on
+    show = false
+end
 
 AllData = AllData+512; % Make sure it is all positive
 
@@ -65,8 +57,8 @@ Slope=diff(AllData,1,2); %./4000;
 
 %Correct for max and min flatlines and analog to digital conversion
 %artifacts
-Slope(Channel,AllData(Channel,:)<200)=1;
-Slope(Channel,AllData(Channel,:)>800)=1;
+Slope(Channel,AllData(Channel,:)<100)=1;
+Slope(Channel,AllData(Channel,:)>900)=1;
 
 %Find Start and End Locations of Regions with Zero Slope 
 ZeroSlopeInflections=diff(Slope(Channel,:)==0);
