@@ -7,7 +7,7 @@ function vis_event(AllData, ecogT, datapoints, options)
 %
 % Inputs: 
 %   AllData- vector of data in microseconds
-%   Ecog_Events- table of patient events
+%   ecogT- table of patient events
 %   datapoints - vector containing indices of interest, or Nx2 matrix of
 %   data windows to view
 %

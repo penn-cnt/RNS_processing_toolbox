@@ -5,6 +5,8 @@ import os
 import sys
 import logging
 import traceback
+import glob
+import multiprocessing as mp
 from pennsieve import Pennsieve
 from functions import pennsieve_tools
 
@@ -15,7 +17,40 @@ def uploadPatientCatalogAnnots(ptList, config):
     pnsv = Pennsieve()
 
     for ptID in ptList:
-        pennsieve_tools.annotate_from_catalog(ptID, config, pnsv)
+        try:
+            pennsieve_tools.annotate_from_catalog(ptID, config, pnsv)
+        except:
+            logging.error('%s catalog annotation failed'%ptID)
+            logging.error(traceback.format_exc())
+            pass
+        
+
+def uploadPatientAnnots(ptList, config, annotLayerName=None):
+    ''' Uploads all annotations from files in patient's Annotations folder or files
+    specified by annotLayerName input '''
+    
+    pnsv = Pennsieve()
+    
+    for ptID in ptList:
+        
+        # Get Annotation Paths
+        if annotLayerName:
+            annotPths = [os.path.join(config['paths']['RNS_DATA_Folder'], ptID,
+                                          'Annotations', '%s.mat'%annotLayerName)]
+        else: 
+            annotPths = glob.glob(os.path.join(config['paths']['RNS_DATA_Folder'],
+                                               ptID,'Annotations','*.mat'))
+        
+        for annotPth in annotPths:
+            if os.path.exists(annotPth):
+                annotLayerName = annotPth.split('/')[-1][:-4]
+            
+                if annotLayerName == 'Device_Stim':
+                    annotLayerName = 'Stims'
+                
+                pennsieve_tools.annotate_UTC_from_mat(ptID, config, 
+                                                      annotLayerName, 
+                                                      annotPth, pnsv)
 
 
 def pullPatientAnnots(config, layerName):
@@ -49,6 +84,10 @@ if __name__ == "__main__":
         config= json.load(f)
 
     ptList = [pt['ID'] for pt in config['patients']]
+    ptList = ptList[1:]
+    
+    ptList = ['HUP084', 'HUP101', 'HUP109', 'HUP121', 'HUP128', 'HUP131', 'HUP137', 
+              'HUP156', 'RNS021', 'RNS022']
     
     # Set up logging
     logfile = os.path.join(config['paths']['RNS_RAW_Folder'],'logfile.log');
@@ -71,10 +110,16 @@ if __name__ == "__main__":
         uploadNewPatient(ptList, config)
     
     # Upload new annotations to Pennsieve
-    x = input('Upload new event annotations to Pennsieve (y/n)?: ')
+    x = input('Upload new NeuroPace event annotations to Pennsieve (y/n)?: ')
     if x =='y':
         uploadPatientCatalogAnnots(ptList, config)
+    
+    # Upload new annotations to Pennsieve
+    x = input('Upload new annotations from file to Pennsieve (y/n)?: ')
+    if x =='y':
+        uploadPatientAnnots(ptList, config)
         
+                
 
         
     

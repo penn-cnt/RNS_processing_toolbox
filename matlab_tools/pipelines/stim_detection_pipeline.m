@@ -30,8 +30,9 @@ for ptID = ptList
    % Get Stimulation times and Indices
    [StimStartStopIndex, StimStats]= findStim(ecogD.AllData);
    StimStartStopTimes = idx2time(ecogT, StimStartStopIndex);
+   annots = posixtime(StimStartStopTimes) *10^6;
    
-   save(savepath, 'StimStartStopIndex', 'StimStartStopTimes', 'StimStats')
+   save(savepath, 'annots', 'StimStartStopIndex', 'StimStartStopTimes', 'StimStats')
         
 end
 
