@@ -1,4 +1,4 @@
-function [ecogT, ecogD, stims, histT, pdms] = loadRNSptData(ptID, rns_config, options)
+function [ecogT, ecogD, stims, histT, pdms, OFFSET] = loadRNSptData(ptID, rns_config, options)
 % [ecogT, ecogD, stims, histT, pdms] = loadRNSptData(ptID, rns_config, options)
 %  INPUT:
 %       ptID (string): patient ID
@@ -28,7 +28,9 @@ function [ecogT, ecogD, stims, histT, pdms] = loadRNSptData(ptID, rns_config, op
         warning('Could not find pdms data at %s',pdmsPth)
         pdms = [];
     end
-    
+
+    OFFSET = 0; 
+
     if options.timeOffset
         MINDATE = min([pdms.Programming_Date; ecogT.Timestamp; ecogT.RawLocalTimestamp;...
             ecogT.RawUTCTimestamp; histT.RegionStartTime; histT.UTCStartTime]);
