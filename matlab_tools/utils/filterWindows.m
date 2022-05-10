@@ -1,4 +1,5 @@
 function [set1_inclusive_inds, set1_exclusive_inds, set2_included_inds]=filterWindows(windowsetOutside, windowsetInside)
+% [set1_inclusive_inds, set1_exclusive_inds, set2_included_inds]=filterWindows(windowsetOutside, windowsetInside)
 % Returns List where windowsetOutside _inculdes_ the entirety of
 % windowsetInside, and where windowsetOutside excludes the entirety of
 % windowsetInside.

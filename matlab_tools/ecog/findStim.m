@@ -34,7 +34,7 @@ function [StimStartStopIndex, stats] = findStim(AllData, Min, Channel, show)
 %   Arjun Ravi Shankar
 %   Litt Lab July 2018
 %
-%   Updated Brittany Scheid (bscheid@seas.upenn.edu) February 2021
+%   Updated Brittany Scheid (bscheid@seas.upenn.edu) May 2022
 
 %% Variable Input Defaults
 arguments
@@ -56,14 +56,16 @@ end
 Slope=diff(AllData,1,2); %./4000;
 
 %Correct for max and min flatlines and analog to digital conversion
-%artifacts
-Slope(Channel,AllData(Channel,:)<100)=1;
-Slope(Channel,AllData(Channel,:)>900)=1;
+%artifacts: Set slope to 1 if hits lower or upper rails for < "Min" samples
+
+Slope(Channel, runInds(AllData(Channel,:)<100, Min)) = 1;
+Slope(Channel, runInds(AllData(Channel,:)>900, Min)) = 1;
 
 %Find Start and End Locations of Regions with Zero Slope 
 ZeroSlopeInflections=diff(Slope(Channel,:)==0);
 ZeroSlopeStarts=find(ZeroSlopeInflections==1)+1;
 ZeroSlopeEnds=find(ZeroSlopeInflections==-1)+1;
+%%
 
 % If more starts then ends, ignore last one
 if find(ZeroSlopeInflections== -1,1, 'last') < find(ZeroSlopeInflections== 1,1, 'last')
@@ -71,16 +73,18 @@ if find(ZeroSlopeInflections== -1,1, 'last') < find(ZeroSlopeInflections== 1,1, 
 end
 
 %Find Indices of Stimulation Start and End Points
-StimStartStopIndex= [ZeroSlopeStarts(ZeroSlopeEnds-ZeroSlopeStarts>=Min)',...
-                     ZeroSlopeEnds(ZeroSlopeEnds-ZeroSlopeStarts>=Min)'];
+SSI_start = ZeroSlopeStarts(ZeroSlopeEnds-ZeroSlopeStarts>=Min)';
+SSI_end = ZeroSlopeEnds(ZeroSlopeEnds-ZeroSlopeStarts>=Min)';
 
-%Find Stim Start and End Times
+%Correct for Double Stimulation or low-frequency stim conditions
+StimGap= SSI_start(2:end)-SSI_end(1:end-1);
+i_gp = find(StimGap<100);  
+SSI_start(i_gp+1)= []; 
+SSI_end(i_gp)= []; 
 
-%Correct for Double Stimulation Error
-% StimGap= StimStartStopTimes(2:end,1)-StimStartStopTimes(1:end-1,2);
+StimStartStopIndex = [SSI_start, SSI_end];
 
-% Double=find(StimGap<=4000000);
-% 
+ 
 % %Count Number of Stimulation Groups
 % 
 % % First Assume Every Stimulation is a Single Stim
@@ -137,4 +141,21 @@ if show
     ylabel('Occurences')
 end
 
+end
+
+%%
+function indOut = runInds(q,maxRun)
+    % given a binary input vector, returns a binary mask with 1 at
+    % locations of consecutive runs less than "maxRun" in length
+
+    s=diff(diff(cumsum([0,0,q,0,0])));
+    i_end = find(s == -1);
+    i_beg = find(s==1);
+    gp_sz = i_end - i_beg; 
+    
+    indOut = false(1, length(q));
+    for i_g = find(gp_sz < maxRun)
+        indOut(i_beg(i_g):i_end(i_g)-1)= true; 
+    end
+    
 end

@@ -19,7 +19,7 @@ ptList = {config.patients.ID};
 for ptID = ptList
     
     savepath = ptPth(ptID{1}, config, 'device stim');
-    if exist(savepath, 'file'), continue, end % Skip if already exists
+   % if exist(savepath, 'file'), continue, end % Skip if already exists
     
     disp(ptID) 
     
@@ -39,14 +39,14 @@ end
 %% Check Stim Indices
 
 % Visually check that stimulations are being detected
-ptID = {'HUP127'};
-ecogT = readtable(ptPth(ptID{1}, config, 'ecog catalog'));
-ecogD = matfile(ptPth(ptID{1}, config, 'device data'));
-load(fullfile(ptPth(ptID{1}, config, 'root'), 'Device_Stim.mat'));
+ptID = 'HUP131';
+[ecogT, ecogD, stims, ~, pdms] = loadRNSptData(ptID, config);
 
 AllData = ecogD.AllData;
 
-vis_event(AllData, ecogT, StimStartStopIndex)
+i_stim = any(StimStartStopTimes > datetime(2020, 1, 20), 2);
+
+vis_event(AllData, ecogT, StimStartStopIndex(i_stim,:))
 
 
 
