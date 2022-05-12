@@ -14,6 +14,7 @@ function path = ptPth(ptID, config, dataName)
         case {'device stim'}, path = fullfile(prefix,'Device_Stim.mat');
         case {'episode durations'}, path = fullfile(prefix,'EpisodeDurations');
         case {'pdms'}, path= fullfile(config.paths.RNS_DATA_Folder, 'PDMS.csv'); 
+        case {'annotations'}, path = fullfile(prefix,'Annotations');
         otherwise, path = 'File/Folder not found'; disp(path);
     end
             

@@ -4,7 +4,9 @@
 Created on Tue Feb 16 14:38:21 2021
 test_pytools.py 
 
-To run: "python -m pytest"
+To run:
+    - cd to 
+    - "python -m pytest"
 
 @author: bscheid
 """
@@ -15,6 +17,7 @@ import pandas as pd
 import os
 from functions import utils
 from functions import NPDataHandler as npdh
+#from pennsieve import Pennsieve
 
 
 # Set up fixtures
@@ -29,14 +32,14 @@ def tst_config(tmpdir):
     tst_config['patients'] =  [{'ID': 'RNS001',
                                 'PDMS_ID': '12345',
                                 'Initials': 'ABC',
-                                'bf_dataset': 'N:dataset:1234-5678-91011',
-                                'bf_package': ' '
+                                'pnsv_dataset': 'N:dataset:1234-5678-91011',
+                                'pnsv_package': ' '
                                 }, 
                                {'ID': 'RNS002',
                                 'PDMS_ID': '97890',
                                 'Initials': 'DEF',
-                                'bf_dataset': 'N:dataset:1234-5678-91011',
-                                'bf_package': ' '
+                                'pnsv_dataset': 'N:dataset:1234-5678-91011',
+                                'pnsv_package': ' '
                                 }]
     
     return tst_config
@@ -63,6 +66,9 @@ def test_ptIdxLookup(tst_config):
     ptID = 'RNS001'
     assert utils.ptIdxLookup(tst_config, 'ID', ptID) == 0
     
+
+#TODO: Test single and list input for converters
+    
     
     
 
@@ -81,17 +87,50 @@ def test_readDatFile(tmpdir, ecog_df):
     f.write(bytes(dataIn.T.reshape(-1,1)))
     f.close()
     
-    [fdata1, ftime1, t_conv1]= npdh._readDatFile(p, ecog_df[0:1])
+    [fdata1, ftime1, t_conv1]= npdh._readDatFile(p, ecog_df.iloc[[0]])
     assert (fdata1 == dataIn-512).all()
 
 def test_readDatFile_empty(tmpdir, ecog_df):
     p = tmpdir.mkdir("test_dats")
     
-    with pytest.raises(Exception) as e_info:
-        assert npdh._readDatFile(p, ecog_df[1:2])
-    
-    
+    with pytest.raises(Exception):
+        assert npdh._readDatFile(p, ecog_df.iloc[[1]])
+        
 
+def test_getTimeStrings(ecog_df):
+    # Test getTimeStrings for single and multiple ros
+    
+    # Test single input:
+    ecog_df_row = ecog_df.iloc[[0]]
+    one_out = npdh._getTimeStrings(ecog_df_row)
+    
+    assert all(isinstance(x, list) for x in one_out)
+    assert one_out[0][0] == 1580972555964000
+    assert one_out[1][0] == 1580972616000000
+    assert one_out[2][0] == 1580954616000000
+    assert one_out[3][0] == 18000000000
+    
+    # Test multiple row input:
+    ecog_df_row = ecog_df.iloc[[0,1]]
+    multi_out = npdh._getTimeStrings(ecog_df_row)
+    
+    assert all(isinstance(x, list) for x in multi_out)
+    
+    assert one_out[0][0] == 1580972555964000
+    assert one_out[1][0] == 1580972616000000
+    assert one_out[2][0] == 1580954616000000
+    assert one_out[3][0] == 18000000000
+    
+    # Test incorrect input type
+    with pytest.raises(Exception):
+        assert npdh._getTimeStrings(ecog_df.iloc[0])
+    
+    
+    
+## Pennsieve Tools TESTS ##
+
+# Test uplooad
+# Test download
     
     
 

@@ -19,7 +19,7 @@ ptList = {config.patients.ID};
 for ptID = ptList
     
     savepath = ptPth(ptID{1}, config, 'device stim');
-    if exist(savepath, 'file'), continue, end % Skip if already exists
+   % if exist(savepath, 'file'), continue, end % Skip if already exists
     
     disp(ptID) 
     
@@ -30,37 +30,23 @@ for ptID = ptList
    % Get Stimulation times and Indices
    [StimStartStopIndex, StimStats]= findStim(ecogD.AllData);
    StimStartStopTimes = idx2time(ecogT, StimStartStopIndex);
+   annots = posixtime(StimStartStopTimes) *10^6;
    
-   save(savepath, 'StimStartStopIndex', 'StimStartStopTimes', 'StimStats')
+   save(savepath, 'annots', 'StimStartStopIndex', 'StimStartStopTimes', 'StimStats')
         
 end
 
 %% Check Stim Indices
 
 % Visually check that stimulations are being detected
-ptID = {'HUP127'};
-ecogT = readtable(ptPth(ptID{1}, config, 'ecog catalog'));
-ecogD = matfile(ptPth(ptID{1}, config, 'device data'));
-load(fullfile(ptPth(ptID{1}, config, 'root'), 'Device_Stim.mat'));
+ptID = 'HUP131';
+[ecogT, ecogD, stims, ~, pdms] = loadRNSptData(ptID, config);
 
 AllData = ecogD.AllData;
 
-vis_event(AllData, ecogT, StimStartStopIndex)
+i_stim = any(StimStartStopTimes > datetime(2020, 1, 20), 2);
 
-%% Example
+vis_event(AllData, ecogT, StimStartStopIndex(i_stim,:))
 
-% Retrive indices of all scheduled events that include or exclude
-% stimulation windows. Filter windows takes two sets of windows (or a set
-% of windows and a vector of points), and returns indices of the first
-% window set that include and exclude the windows or points in the second
-% set.
-
-% Get start and stop indices of all secheduled events
-i_sched = find(strcmp(ecogT.ECoGTrigger, 'Scheduled'));
-evntIdx= ecogT{i_sched, {'EventStartIdx', 'EventEndIdx'}};
-
-[incl, excl] = filterWindows(evntIdx, StimStartStopIndex); 
-
-vis_event(AllData, ecogT, evntIdx(excl))
 
 

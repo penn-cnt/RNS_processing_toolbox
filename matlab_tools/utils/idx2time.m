@@ -1,4 +1,5 @@
 function usecTime = idx2time(ecogT, idx, options)
+% usecTime = idx2time(ecogT, idx, options)
 % USAGE: Convert AllTime indices to microsecond times (either UTC or local,
 %        formatted as datetime objects or posixtime). 
 % INPUTS:
@@ -28,7 +29,7 @@ if isvector(idx) && ~iscolumn(idx)
 end
 
 if strcmp(options.timezone, 'UTC')
-    timeconversion = ecogT.RawUTCTimestamp(1)-ecogT.RawLocalTimestamp(1);
+    timeconversion = ecogT.RawUTCTimestamp - ecogT.RawLocalTimestamp;
     times = ecogT.Timestamp + timeconversion;
 else
     times = ecogT.Timestamp;

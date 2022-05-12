@@ -8,8 +8,7 @@ config= jsondecode(fileread('./config.JSON'));
 nPts = length(config.patients); 
 
 % add toolboxes
-addpath(genpath('./conversion'))
-addpath(genpath('./matlab_analysis'))
+addpath(genpath('./matlab_tools'))
 
 if ~exist(config.paths.MAT_Folder, 'dir')
     mkdir(config.paths.MAT_Folder); 
