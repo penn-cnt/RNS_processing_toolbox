@@ -1,4 +1,5 @@
 function usecTime = idx2time(ecogT, idx, options)
+% usecTime = idx2time(ecogT, idx, options)
 % USAGE: Convert AllTime indices to microsecond times (either UTC or local,
 %        formatted as datetime objects or posixtime). 
 % INPUTS:

@@ -23,7 +23,12 @@ function [ecogT, ecogD, stims, histT, pdms, OFFSET] = loadRNSptData(ptID, rns_co
     try
         pdmsPth = ptPth(ptID, rns_config, 'pdms');
         allpdms = readtable(pdmsPth);  
-        pdms = allpdms(contains(allpdms.id_code, ptID),:); 
+        pdms = allpdms(contains(allpdms.id_code, ptID),:);
+
+        if any(year(pdms.Programming_Date) < 2000)
+            pdms.Programming_Date = pdms.Programming_Date + calyears(2000);
+        end
+
     catch
         warning('Could not find pdms data at %s',pdmsPth)
         pdms = [];
