@@ -40,7 +40,7 @@ def loadDeviceDataFromFiles(pList, config):
 
     for ptID in ptList:
 
-       print('loading data for patient %s ...'%ptID)
+       logging.info('loading data for patient %s ...'%ptID)
       
        savepath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID);
        
@@ -55,7 +55,7 @@ def loadDeviceDataFromFiles(pList, config):
        if dneIdx:
            Ecog_Events.drop(index=dneIdx, inplace=True)
            Ecog_Events.reset_index(drop=True, inplace=True)
-           print('Removing %d entries from deidentified ECoG_Catalog.csv due to missing data'%(len(dneIdx)))
+           logging.info('Removing %d entries from deidentified ECoG_Catalog.csv due to missing data'%(len(dneIdx)))
 
        Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Device ID'])
        Ecog_Events['Patient ID']= ptID
@@ -76,7 +76,7 @@ def loadDeviceDataFromFiles(pList, config):
 def createDeidentifiedFiles(pList, config):
             
     for ptID in ptList:
-        print('Creating deidentified files for %s'%ptID)
+        logging.info('Creating deidentified files for %s'%ptID)
         npdh.NPdeidentifier(ptID, config)
         
         
@@ -94,12 +94,13 @@ if __name__ == "__main__":
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     
-    logging.basicConfig(filename=logfile, level=logging.INFO)
- 
+    FORMAT = '%(asctime)s %(funcName)s: %(message)s'
+    logging.basicConfig(filename=logfile, level=logging.INFO, format=FORMAT)
     logger = logging.getLogger()
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.DEBUG)
     logger.addHandler(handler)
+
 
     logging.info('Running process_raw.py pipeline with patient list: %s'%ptList)
     
@@ -107,7 +108,7 @@ if __name__ == "__main__":
         os.makedirs(config['paths']['RNS_DATA_Folder'])
     
     # Download latest data from Box
-    x = input('Download new data from Box drive (y/n)?: ')
+    x = input('Download new data from Box using sdk (y/n)?: ')
     if x =='y': 
         downloadPatientDataFromBox(ptList, config)
     
