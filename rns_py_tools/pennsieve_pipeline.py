@@ -20,7 +20,7 @@ def uploadPatientCatalogAnnots(ptList, config):
         try:
             pennsieve_tools.annotate_from_catalog(ptID, config, pnsv)
         except:
-            logging.error('%s catalog annotation failed'%ptID)
+            logging.error('ERROR: %s catalog annotation failed'%ptID)
             logging.error(traceback.format_exc())
             pass
         
@@ -65,7 +65,7 @@ def pullPatientAnnots(config, layerName):
         logging.info('Pulling annotations for patient %s'%pt)
 
 
-def uploadNewPatient(ptList, config):
+def uploadNewPatientData(ptList, config):
     
     pnsv = Pennsieve()
     
@@ -84,19 +84,15 @@ if __name__ == "__main__":
         config= json.load(f)
 
     ptList = [pt['ID'] for pt in config['patients']]
-    ptList = ptList[1:]
-    
-    ptList = ['HUP084', 'HUP101', 'HUP109', 'HUP121', 'HUP128', 'HUP131', 'HUP137', 
-              'HUP156', 'RNS021', 'RNS022']
-    
+        
     # Set up logging
     logfile = os.path.join(config['paths']['RNS_RAW_Folder'],'logfile.log');
     
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
   
-    logging.basicConfig(filename=logfile, level=logging.INFO)
- 
+    FORMAT = '%(asctime)s %(funcName)s: %(message)s'
+    logging.basicConfig(filename=logfile, level=logging.INFO, format=FORMAT)
     logger = logging.getLogger()
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.DEBUG)
@@ -107,7 +103,7 @@ if __name__ == "__main__":
     #Upload new data to Pennsieve
     x = input('Upload new .dat files to Pennsieve (y/n)?: ')
     if x =='y':
-        uploadNewPatient(ptList, config)
+        uploadNewPatientData(ptList, config)
     
     # Upload new annotations to Pennsieve
     x = input('Upload new NeuroPace event annotations to Pennsieve (y/n)?: ')

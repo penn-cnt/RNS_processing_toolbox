@@ -102,16 +102,21 @@ if __name__ == "__main__":
     logger.addHandler(handler)
 
 
-    logging.info('Running process_raw.py pipeline with patient list: %s'%ptList)
+    logging.info('Running process_raw.py pipeline with patient list: %s \n'%ptList)
     
     if not os.path.exists(config['paths']['RNS_DATA_Folder']):
         os.makedirs(config['paths']['RNS_DATA_Folder'])
     
     # Download latest data from Box
-    x = input('Download new data from Box using sdk (y/n)?: ')
-    if x =='y': 
-        downloadPatientDataFromBox(ptList, config)
-    
+    if config['boxKeys']['CLIENT_ACCESS_TOKEN']:
+        x = input('Download new data from Box using sdk (y/n)?: ')
+        if x =='y': 
+            downloadPatientDataFromBox(ptList, config)
+    else:
+        print('NOTE: BoxKey ACCESS TOKEN not in config. The ACCESS TOKEN must be ' +
+              'specified if using the Box SDK to download raw data. Otherwise,' +
+              ' raw data can be downloaded if RNS_RAW_FOLDER is a Box Drive path.\n')
+                
     # Create Deidentified copies of files
     x = input('Populate RNS Data folder with deidentified NeuroPace files (y/n)?: ')
     if x =='y':     

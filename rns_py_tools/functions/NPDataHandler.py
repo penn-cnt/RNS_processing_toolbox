@@ -29,16 +29,6 @@ import logging
 from os import path as pth
 from functions import utils as utils
 
-import jpype
-import jpype.imports
-
-
-# Launch the JVM
-if not jpype.isJVMStarted():
-    jpype.startJVM(classpath=['../lib/MEF_writer.jar'])
-    
-from edu.mayo.msel.mefwriter import MefWriter
-
 # Constants
 NUM_CHANNELS = 4
 SAMPLING_RATE = 250
@@ -262,6 +252,15 @@ def NPdat2mat(ptID, config):
 
 
 def NPdat2mef(ptID, config):
+    
+    import jpype
+    import jpype.imports
+
+    # Launch the JVM
+    if not jpype.isJVMStarted():
+        jpype.startJVM(classpath=['../lib/MEF_writer.jar'])
+        
+    from edu.mayo.msel.mefwriter import MefWriter
     
     dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
     catalog_csv = NPgetDataPath(ptID, config, 'ECoG Catalog')

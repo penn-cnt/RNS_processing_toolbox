@@ -22,3 +22,4 @@ dependencies:
   - pip:
       - blackfynn>=4.0.0
       - pennsieve>=6.1.2
+      - setuptools

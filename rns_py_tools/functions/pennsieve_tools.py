@@ -20,6 +20,7 @@ from functions import utils
 import pandas as pd
 import numpy as np
 import datetime as DT
+import time
 import csv
 import pdb
 import json
@@ -59,7 +60,7 @@ def annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file, pnsv):
     ds = pnsv.get_dataset(dataset)
     collection = ds.get_items_by_name(ptID)[0]
     
-    logging.info('Adding annotations to %s layer for %s'%(newLayer, ptID))
+    logging.info('Adding new annotations to %s layer for %s'%(newLayer, ptID))
 
     annotations = sio.loadmat(annot_mat_file) # Your path to .mat file of timestamps in UTC here (e.g. /home/data/RNS_DataSharing/...)
     annots = annotations['annots']  # Get annots, should be stored in posixtime microseconds
@@ -117,7 +118,12 @@ def annotate_from_catalog(ptID, config, pnsv):
     # Error if collection doesn't exist!
     
     catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
-    ecog_df= pd.read_csv(catalog_csv)
+    
+    try:
+        ecog_df= pd.read_csv(catalog_csv)
+    except TimeoutError:
+        logging.info('Timeout error reading EcoG Catalog, trying again')
+        ecog_df= pd.read_csv(catalog_csv)
     
     utc_dt = [DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f") for s in ecog_df['Raw UTC timestamp']]
     
@@ -137,9 +143,9 @@ def annotate_from_catalog(ptID, config, pnsv):
                     if x.month == int(mon) and x.year == int(yr)]
         if mon_inds:
             trigger_utc_datetime = ecog_df['Raw UTC timestamp'].iloc[mon_inds]
-            trigger_utc = utils.str2dt_usec(trigger_utc_datetime)
-            trigger_local = utils.str2dt_usec(ecog_df['Raw local timestamp'].iloc[mon_inds])
-            start_local =  utils.str2dt_usec(ecog_df['Timestamp'].iloc[mon_inds])
+            trigger_utc = utils.str2dt_usec(trigger_utc_datetime.tolist())
+            trigger_local = utils.str2dt_usec(ecog_df['Raw local timestamp'].iloc[mon_inds].tolist())
+            start_local =  utils.str2dt_usec(ecog_df['Timestamp'].iloc[mon_inds].tolist())
             ecog_len  =  ecog_df['ECoG length'].iloc[mon_inds]
             trigger_types = ecog_df['ECoG trigger'].iloc[mon_inds]
 
@@ -154,10 +160,9 @@ def annotate_from_catalog(ptID, config, pnsv):
             labels = [annot.label for annot in [i for sub in annotlist for i in sub]]
             descriptions = [i for i in all_descriptions if i not in labels]
             
-            logging.info('Uploading %d new annotations to %s'%(len(descriptions), item.name))
-            
             for i_annot in range(0,len(descriptions)):
                 
+                logging.info('Uploading %d new annotations to %s'%(len(descriptions), item.name))
                 item.insert_annotation(trigger_types.iloc[i_annot], descriptions[i_annot],
                                        start=int(starttimes[i_annot]), 
                                        end=int(endtimes[i_annot]))
@@ -203,7 +208,12 @@ def uploadNewDat(ptID, config, pnsv):
     # parse to last year and last month
     
     catalog_csv = npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
-    ecog_df= pd.read_csv(catalog_csv)
+    
+    try:
+        ecog_df= pd.read_csv(catalog_csv)
+    except TimeoutError:
+        logging.info('Timeout error reading EcoG Catalog, trying again')
+        ecog_df= pd.read_csv(catalog_csv)
     
     utc_dt = [DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f") for s in ecog_df['Raw UTC timestamp']]
     yrmin= min(y.year for y in utc_dt)
@@ -215,10 +225,16 @@ def uploadNewDat(ptID, config, pnsv):
     if os.path.exists(tmpPath):
         shutil.rmtree(tmpPath)
     os.makedirs(tmpPath)      
+    
+    today = DT.date.today()
             
     # Concatenate .dat files for each month if collection doesn't exist, then upload 
     for yr in range(yrmin,yrmax+1):
         for mon in range (1,13):
+            
+            # Skip current month to avoid partial month upload
+            if (mon >= today.month and yr >= today.year):
+                break
             
             ts_name = '%s_%d_%02d'%(ptID, yr, mon)
             
@@ -238,13 +254,14 @@ def uploadNewDat(ptID, config, pnsv):
         
         # Trigger processing of data (might be able to use process method of collection item)
         for item in collection.items:
-            item.process()
+            if item.state == 'UPLOADED':
+                item.process()
             
     except:
         logging.exception('')
             
             
-    #shutil.rmtree(tmpPath)
+    shutil.rmtree(tmpPath)
                 
             
 if __name__ == "__main__":
