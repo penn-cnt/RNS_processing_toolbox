@@ -92,12 +92,16 @@ def NPdownloadNewBoxData(ptID, config, client):
             _downloadAll(hist_folder.id, fpath, 0, client)
             logging.info('     Histograms updated')
         except IndexError:
-            logging.error('Histogram Folder missing in %s'%(ptFolder.name))
+            logging.warning('Histogram Folder missing in %s'%(ptFolder.name))
             pass
             
         # Download new Episode Durations files from box that are not local 
-        _helper_downloadNew('.*EpisodeDurations*', ptFolder, fpath, client)
-        logging.info('     Episode Durations updated')
+        try:
+            _helper_downloadNew('.*EpisodeDurations*', ptFolder, fpath, client)
+            logging.info('     Episode Durations updated')
+        except IndexError:
+            logging.warning('Episode Durations missing in %s'%(ptFolder.name))
+        
 
         # Download new Data files from box that are not local 
         _helper_downloadNew('.*Data*', ptFolder, fpath, client)
@@ -123,36 +127,54 @@ def NPdeidentifier(ptID, config):
     ecog_df['Patient ID']= ptID
     ecog_df.to_csv(pth.join(targ_pth, 'ECoG_Catalog.csv'), index = False)
     
-    # Create Deidentified histograms
-    if not os.path.exists(pth.join(targ_pth, 'Histograms')):
-        os.makedirs(pth.join(targ_pth, 'Histograms'))
 
-    daily_hist_df = pd.read_csv(np_daily_histogram)
-    daily_hist_df= daily_hist_df.drop(columns=['Device ID'])
-    daily_hist_df['Patient ID']= ptID
-    daily_hist_df.to_csv(pth.join(targ_pth, 'Histograms', 'Histogram_Daily.csv'), index = False)
+    # Create Deidentified histograms
+    if os.path.exists(np_daily_histogram):
+        
+        if not os.path.exists(pth.join(targ_pth, 'Histograms')):
+            os.makedirs(pth.join(targ_pth, 'Histograms'))
+     
+        daily_hist_df = pd.read_csv(np_daily_histogram)
+        daily_hist_df= daily_hist_df.drop(columns=['Device ID'])
+        daily_hist_df['Patient ID']= ptID
+        daily_hist_df.to_csv(pth.join(targ_pth, 'Histograms', 'Histogram_Daily.csv'), index = False)
+    else: 
+        print('%s file not found, skipping Daily Histograms'%np_daily_histogram)
     
-    hourly_hist_df = pd.read_csv(np_hourly_histogram)
-    hourly_hist_df= hourly_hist_df.drop(columns=['Device ID'])
-    hourly_hist_df['Patient ID']= ptID
-    hourly_hist_df.to_csv(pth.join(targ_pth, 'Histograms', 'Histogram_Hourly.csv'), index = False)
+    # check if exists
+    if os.path.exists(np_daily_histogram):
+        
+        if not os.path.exists(pth.join(targ_pth, 'Histograms')):
+            os.makedirs(pth.join(targ_pth, 'Histograms'))
+        
+        hourly_hist_df = pd.read_csv(np_hourly_histogram)
+        hourly_hist_df= hourly_hist_df.drop(columns=['Device ID'])
+        hourly_hist_df['Patient ID']= ptID
+        hourly_hist_df.to_csv(pth.join(targ_pth, 'Histograms', 'Histogram_Hourly.csv'), index = False)
+    else: 
+        print('%s file not found, skipping Hourly Histograms'%np_hourly_histogram)
     
-    
+
     # Create Deidentified EpisodeDurations
-    if not os.path.exists(pth.join(targ_pth, 'EpisodeDurations')):
-        os.makedirs(pth.join(targ_pth, 'EpisodeDurations'))
+    
+    if os.path.exists(np_episodes_folder):
         
-    epth= glob.glob(pth.join(np_episodes_folder, '*.csv'));
-    for epdur in epth:
+        if not os.path.exists(pth.join(targ_pth, 'EpisodeDurations')):
+            os.makedirs(pth.join(targ_pth, 'EpisodeDurations'))
         
-        ename = pth.basename(epdur).split('_')[3:]
-        ename.insert(0,ptID)
-        ename = '_'.join(ename)
-        
-        epdur_df = pd.read_csv(epdur)
-        epdur_df= epdur_df.drop(columns=['Device ID'])
-        epdur_df['Patient ID']= ptID
-        epdur_df.to_csv(pth.join(targ_pth, 'EpisodeDurations', ename), index = False)
+        epth= glob.glob(pth.join(np_episodes_folder, '*.csv'));
+        for epdur in epth:
+            
+            ename = pth.basename(epdur).split('_')[3:]
+            ename.insert(0,ptID)
+            ename = '_'.join(ename)
+            
+            epdur_df = pd.read_csv(epdur)
+            epdur_df= epdur_df.drop(columns=['Device ID'])
+            epdur_df['Patient ID']= ptID
+            epdur_df.to_csv(pth.join(targ_pth, 'EpisodeDurations', ename), index = False)
+        else:
+            print('%s folder not found, skipping Episode Durations'%np_daily_histogram)
     
     return None
     
@@ -447,7 +469,7 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     # Below section creates corresponding .lay file
 
     # Sample indices corresponding to each .dat segment
-    i_samp = np.cumsum([0] + [int(x / 2 / (4 - len(_(ecog_df, i))))
+    i_samp = np.cumsum([0] + [int(x / 2 / (4 - len(_getOffChs(ecog_df, i))))
                               for i, x in zip(datfiles, datSizes)])
 
     dat_fnames = [x[:-4] for x in ecog_df['Filename']]

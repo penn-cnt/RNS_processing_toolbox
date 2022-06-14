@@ -19,6 +19,7 @@ import pandas as pd
 import os
 from functions import utils
 from functions import NPDataHandler as npdh
+from process_raw import loadDeviceDataFromFiles
 #from pennsieve import Pennsieve
 
 
@@ -62,34 +63,32 @@ def ecog_df(tmpdir):
     
     # To add: Missing channels, out of order
     
-    ecog_data = [['2020-02-06 02:02:35.964', "12345.dat", "Scheduled", 0.044, 
-                  250, 4, "On", "On", "On", "On",
+    ecog_data = [['ABC', 12345, 111111, '2020-02-06 02:02:35.964', "12345.dat",
+                  "Scheduled", 0.044, 250, 4, "On", "On", "On", "On",
                  "2020-02-06 02:02:35.980", "2020-02-06 07:02:35.980", 0.016],
-                 ['2020-02-06 02:03:35.964', "23456.dat", "Scheduled", 0.044,
-                  250, 4, "On", "On", "On", "On",
+                 ['ABC', 12345, 111111, '2020-02-06 02:03:35.964', "23456.dat",
+                  "Scheduled", 0.044, 250, 4, "On", "On", "On", "On",
                  "2020-02-06 02:03:35.980", "2020-02-06 07:03:35.980", 0.016],
-                 ['2020-02-06 02:03:35.988', "34567.dat", "Scheduled", 0.044, # overlaps with prev by 20 ms
-                  250, 4, "On", "On", "On", "On",
+                 ['ABC', 12345, 111111, '2020-02-06 02:03:35.988', "34567.dat",
+                  "Scheduled", 0.044,250, 4, "On", "On", "On", "On",            # overlaps with prev by 20 ms
                  "2020-02-06 02:03:36.004", "2020-02-06 07:03:36.004", 0.016],
-                 ['2020-02-06 02:03:36.012', "45678.dat", "Scheduled", 0.016, # Completely overlapped by prev
+                 ['ABC', 12345, 111111, '2020-02-06 02:03:36.012', "45678.dat", "Scheduled", 0.016, # Completely overlapped by prev
                   250, 4, "On", "On", "On", "On",
                  "2020-02-06 02:03:36.020", "2020-02-06 07:03:36.020", 0.008],
-                 ['2020-02-06 02:03:36.064', "56789.dat", "Scheduled", 0.044, # Only has 2 channels on
+                 ['ABC', 12345, 111111, '2020-02-06 02:03:36.064', "56789.dat", "Scheduled", 0.044, # Only has 2 channels on
                   250, 2, "On", "Off", "Off", "On",
                  "2020-02-06 02:03:36.080", "2020-02-06 07:03:36.080", 0.016],
-                 ['2020-02-06 02:02:35.964', "DNE.dat", "Scheduled", 0.044,
+                 ['ABC', 12345, 111111, '2020-02-06 02:02:35.964', "DNE.dat", "Scheduled", 0.044,
                   250, 4, "On", "On", "On", "On",
                  "2020-02-06 02:02:35.980", "2020-02-06 07:02:35.980", 0.016]]
     ecog_df = pd.DataFrame(ecog_data, 
-                           columns=["Timestamp", "Filename", "ECoG trigger",
+                           columns=["Initials", "Patient ID", "Device ID", "Timestamp", "Filename", "ECoG trigger",
                                     "ECoG length", "Sampling rate", "Waveform count",
                                           "Ch 1 enabled", "Ch 2 enabled",
                                           "Ch 3 enabled", "Ch 4 enabled",
                                           "Raw local timestamp", 
                                           "Raw UTC timestamp", "ECoG pre-trigger length"])
-    return ecog_df
-
-        
+    return ecog_df     
 
 ## UTILS TESTS ##
 def test_ptIdxLookup(tst_config):
@@ -101,6 +100,35 @@ def test_ptIdxLookup(tst_config):
     
 
 ## NPDataHandler TESTS ##
+def test_NPdeidentifier(tmpdir,tst_config, ecog_df, exmpl_dat):
+    
+    #Create and populate raw directory     
+    ptID = 'RNS001'
+    dat_pth = npdh.NPgetDataPath(ptID, tst_config, 'dat folder')
+    ecog_pth = npdh.NPgetDataPath(ptID, tst_config, 'ecog catalog')
+    
+    p = os.path.join(tmpdir,dat_pth)
+    os.makedirs(p)
+    
+    f = open(os.path.join(p,"12345.dat"), 'wb')
+    f.write(bytes(exmpl_dat.T.reshape(-1,1)))
+    f.close()
+    
+    ecog_df = ecog_df[:-1]  # Remove last entry since it is "wrong"
+    ecog_df.to_csv(ecog_pth, index=False)
+    
+    print(tmpdir)
+    
+    # Test that directory can be deidentified if missing Histograms and EventDurations
+    npdh.NPdeidentifier(ptID, tst_config)
+    loadDeviceDataFromFiles([ptID], tst_config)
+    
+    
+    
+
+
+    
+
 def test_readDatFile(tmpdir, ecog_df, exmpl_dat):
     
     p = tmpdir.mkdir("test_dats")
@@ -162,7 +190,7 @@ def test_createConcatDatLayFiles(tmpdir, tst_config, ecog_df, exmpl_dat):
     assert os.path.getsize(os.path.join(tmpdir,'test_dats','test02_concat.dat')) == os.path.getsize(os.path.join(p,"12345.dat"))
     
 def test_getOffChs(ecog_df):
-    ch = npdh.getOffChs(ecog_df, "12345.dat")
+    ch = npdh._getOffChs(ecog_df, "12345.dat")
     print(ch)
 
 

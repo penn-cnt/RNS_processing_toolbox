@@ -20,7 +20,7 @@ import hdf5storage
 from functions import NPDataHandler as npdh
 import logging
 
-def downloadPatientDataFromBox(pList, config):
+def downloadPatientDataFromBox(ptList, config):
     
     auth = OAuth2(
         client_id= config['boxKeys']['CLIENT_ID'],
@@ -30,13 +30,13 @@ def downloadPatientDataFromBox(pList, config):
 
     client = Client(auth)
     
-    for ptID in pList:
+    for ptID in ptList:
         npdh.NPdownloadNewBoxData(ptID, config, client)
     
     return
     
 
-def loadDeviceDataFromFiles(pList, config):
+def loadDeviceDataFromFiles(ptList, config):
 
     for ptID in ptList:
 
@@ -73,7 +73,7 @@ def loadDeviceDataFromFiles(pList, config):
        print('complete')
        
        
-def createDeidentifiedFiles(pList, config):
+def createDeidentifiedFiles(ptList, config):
             
     for ptID in ptList:
         logging.info('Creating deidentified files for %s'%ptID)
@@ -84,7 +84,7 @@ def createDeidentifiedFiles(pList, config):
 if __name__ == "__main__":
    
     with open('../config.JSON') as f:
-        config= json.load(f); 
+        config= json.load(f)
         
     ptList = [pt['ID'] for pt in config['patients']]
     
