@@ -37,9 +37,12 @@ jobs:
           name: install dependencies
           command: conda env create -f rns_processing_toolbox.yml
       - run: 
+          name: start conda env
+          command: conda activate rns_processing_toolbox
+      - run: 
           name: Run tests
           # This assumes pytest is installed via the install-package step above
-          command: python -m pytest
+          command: pytest
 
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
