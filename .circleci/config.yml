@@ -36,12 +36,10 @@ jobs:
       - run:
           name: install dependencies
           command: |
-            conda init bash
-            source /root/.bashrc
             conda env create -f rns_processing_toolbox.yml
       - run: 
           name: start conda env
-          command: conda activate rns_processing_toolbox
+          command: source activate rns_processing_toolbox
       - run: 
           name: Run tests
           # This assumes pytest is installed via the install-package step above
