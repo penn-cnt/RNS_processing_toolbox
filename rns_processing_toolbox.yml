@@ -5,7 +5,6 @@ channels:
 dependencies:
   - python=3.7.9
   - spyder>=4.1.5
-  - boxsdk
   - tqdm
   - pypdf2
   - hdf5storage
@@ -20,6 +19,7 @@ dependencies:
   - pytest
   - pip
   - pip:
-      - setuptools
+      - boxsdk
+      - futures<3.0.0
       - blackfynn>=4.0.0
       - pennsieve>=6.1.2

@@ -25,6 +25,7 @@ import csv
 import pdb
 import json
 import logging
+import tempfile
 import os
 import shutil
 
@@ -219,7 +220,8 @@ def uploadNewDat(ptID, config, pnsv):
     yrmin= min(y.year for y in utc_dt)
     yrmax = max(y.year for y in utc_dt)
     
-    tmpPath = os.path.join(config['paths']['RNS_RAW_Folder'],'tmp_%s'%ptID)
+    tmpdir = tempfile.gettempdir()
+    tmpPath = os.path.join(tmpdir,'RNS_RAW_Folder','tmp_%s'%ptID)
     
     # Overwrite temp folder if existing
     if os.path.exists(tmpPath):
@@ -250,7 +252,12 @@ def uploadNewDat(ptID, config, pnsv):
     #Upload folder with monthly datasets
     try:
         logging.info('Uploading %s data to Pennsieve'%ptID)
-        collection.upload(tmpPath)
+        
+        try:
+            collection.upload(tmpPath)
+        except TimeoutError:
+            logging.info('Upload Timeout error, trying again')
+            collection.upload(tmpPath)
         
         # Trigger processing of data (might be able to use process method of collection item)
         for item in collection.items:

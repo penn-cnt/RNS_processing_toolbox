@@ -11,7 +11,6 @@ Created on Wed Sep 16 16:43:22 2020
 @author: bscheid
 """
 
-from boxsdk import Client, OAuth2
 import json
 import os
 import sys
@@ -21,6 +20,8 @@ from functions import NPDataHandler as npdh
 import logging
 
 def downloadPatientDataFromBox(ptList, config):
+    
+    from boxsdk import Client, OAuth2
     
     auth = OAuth2(
         client_id= config['boxKeys']['CLIENT_ID'],
