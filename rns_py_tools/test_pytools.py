@@ -123,11 +123,6 @@ def test_NPdeidentifier(tmpdir,tst_config, ecog_df, exmpl_dat):
     npdh.NPdeidentifier(ptID, tst_config)
     loadDeviceDataFromFiles([ptID], tst_config)
     
-    
-    
-
-
-    
 
 def test_readDatFile(tmpdir, ecog_df, exmpl_dat):
     

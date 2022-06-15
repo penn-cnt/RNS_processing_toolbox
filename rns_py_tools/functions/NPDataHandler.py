@@ -132,7 +132,7 @@ def NPdeidentifier(ptID, config):
         print('%s file not found, skipping Daily Histograms'%np_daily_histogram)
     
     # check if exists
-    if os.path.exists(np_daily_histogram):
+    if os.path.exists(np_hourly_histogram):
         
         if not os.path.exists(pth.join(targ_pth, 'Histograms')):
             os.makedirs(pth.join(targ_pth, 'Histograms'))
@@ -146,7 +146,6 @@ def NPdeidentifier(ptID, config):
     
 
     # Create Deidentified EpisodeDurations
-    
     if os.path.exists(np_episodes_folder):
         
         if not os.path.exists(pth.join(targ_pth, 'EpisodeDurations')):

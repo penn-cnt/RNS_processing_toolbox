@@ -16,6 +16,7 @@ import os
 import sys
 import pandas as pd
 import hdf5storage
+import traceback
 from functions import NPDataHandler as npdh
 import logging
 
@@ -39,40 +40,54 @@ def downloadPatientDataFromBox(ptList, config):
 
 def loadDeviceDataFromFiles(ptList, config):
 
+    errlist= [];
+    
     for ptID in ptList:
+        
+       try:
 
-       logging.info('loading data for patient %s ...'%ptID)
-      
-       savepath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID);
-       
-       # Get converted Data and Time vectors 
-       [AllData, eventIdx, dneIdx] = npdh.NPdat2mat(ptID, config)
+           logging.info('loading data for patient %s ...'%ptID)
+          
+           savepath = os.path.join(config['paths']['RNS_DATA_Folder'], ptID);
+           
+           # Get converted Data and Time vectors 
+           [AllData, eventIdx, dneIdx] = npdh.NPdat2mat(ptID, config)
+        
+           #Update (and deidentify) ECoG Catalog:
+           catalog_csv= npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
+           Ecog_Events = pd.read_csv(catalog_csv);
+           
+           # Remove rows that don't have an associated .dat file
+           if dneIdx:
+               Ecog_Events.drop(index=dneIdx, inplace=True)
+               Ecog_Events.reset_index(drop=True, inplace=True)
+               logging.info('Removing %d entries from deidentified ECoG_Catalog.csv due to missing data'%(len(dneIdx)))
     
-       #Update (and deidentify) ECoG Catalog:
-       catalog_csv= npdh.NPgetDataPath(ptID, config, 'ECoG Catalog')
-       Ecog_Events = pd.read_csv(catalog_csv);
+           Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Device ID'])
+           Ecog_Events['Patient ID']= ptID
+           
+           # Add event index to ecog_events file, add +1 for matlab 1-indexing
+           Ecog_Events['Event Start idx'] = [row[0]+1 for row in eventIdx]; 
+           Ecog_Events['Event End idx'] = [row[1]+1 for row in eventIdx];
+           
+                  # Save updated csv and all events
+           Ecog_Events.to_csv(os.path.join(savepath,'ECoG_Catalog.csv'), index=False)
+           
+           hdf5storage.savemat(os.path.join(savepath, 'Device_Data.mat'), {"AllData": AllData, "EventIdx":eventIdx}, 
+                               format ='7.3', oned_as='column', store_python_metadata=True)
+        
+           print('complete')
        
-       # Remove rows that don't have an associated .dat file
-       if dneIdx:
-           Ecog_Events.drop(index=dneIdx, inplace=True)
-           Ecog_Events.reset_index(drop=True, inplace=True)
-           logging.info('Removing %d entries from deidentified ECoG_Catalog.csv due to missing data'%(len(dneIdx)))
-
-       Ecog_Events = Ecog_Events.drop(columns=['Initials', 'Device ID'])
-       Ecog_Events['Patient ID']= ptID
+       except:
+           logging.error('ERROR: %s catalog annotation failed'%ptID)
+           logging.error(traceback.format_exc())
+           errlist.append(ptID)
+           pass
        
-       # Add event index to ecog_events file, add +1 for matlab 1-indexing
-       Ecog_Events['Event Start idx'] = [row[0]+1 for row in eventIdx]; 
-       Ecog_Events['Event End idx'] = [row[1]+1 for row in eventIdx];
+       if errlist:
+            logging.warning('ERROR SUMMARY: load data failed for %s'%errlist)
        
-              # Save updated csv and all events
-       Ecog_Events.to_csv(os.path.join(savepath,'ECoG_Catalog.csv'), index=False)
-       
-       hdf5storage.savemat(os.path.join(savepath, 'Device_Data.mat'), {"AllData": AllData, "EventIdx":eventIdx}, 
-                           format ='7.3', oned_as='column', store_python_metadata=True)
     
-       print('complete')
-       
        
 def createDeidentifiedFiles(ptList, config):
             

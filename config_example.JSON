@@ -6,7 +6,7 @@
 	"boxKeys": {
 		"CLIENT_ID": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 		"CLIENT_SECRET": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"ACCESS_TOKEN": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		"CLIENT_ACCESS_TOKEN": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 		"Folder_ID": "xxxxxxxx"
 	},
 	"institution": "UPenn",
