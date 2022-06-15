@@ -249,23 +249,28 @@ def uploadNewDat(ptID, config, pnsv):
                                              ts_name,
                                              tmpPath)  
 
-    #Upload folder with monthly datasets
-    try:
-        logging.info('Uploading %s data to Pennsieve'%ptID)
-        
+    #Upload folder with monthly datasets if directory contains files
+    if os.listdir(tmpPath):
         try:
-            collection.upload(tmpPath)
-        except TimeoutError:
-            logging.info('Upload Timeout error, trying again')
-            collection.upload(tmpPath)
-        
-        # Trigger processing of data (might be able to use process method of collection item)
-        for item in collection.items:
-            if item.state == 'UPLOADED':
-                item.process()
+            logging.info('Uploading %s data to Pennsieve'%ptID)
             
-    except:
-        logging.exception('')
+            try:
+                collection.upload(tmpPath)
+            except TimeoutError:
+                logging.info('Upload Timeout error, trying again')
+                collection.upload(tmpPath)
+            
+            # Trigger processing of data (might be able to use process 
+            # method of collection item)
+            for item in collection.items:
+                if item.state == 'UPLOADED':
+                    item.process()
+                
+        except:
+            logging.exception('')
+    else:
+        print('No new data to upload for %s'%ptID)
+            
             
             
     shutil.rmtree(tmpPath)
