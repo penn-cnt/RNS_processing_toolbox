@@ -18,5 +18,5 @@ dependencies:
   - pip=21.2.4
   - pip:
       - boxsdk
-      - futures==3.0.0
+      - futures==2.2.0
       - pennsieve>=6.1.2
