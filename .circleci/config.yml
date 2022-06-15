@@ -37,6 +37,7 @@ jobs:
           name: install dependencies
           command: |
             conda init bash
+            source /root/.bashrc
             conda env create -f rns_processing_toolbox.yml
       - run: 
           name: start conda env
