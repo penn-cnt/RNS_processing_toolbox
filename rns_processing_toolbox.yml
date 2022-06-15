@@ -7,6 +7,7 @@ dependencies:
   - spyder>=4.1.5
   - tqdm
   - pypdf2
+  - protobuf==3.20.0
   - hdf5storage
   - numpy
   - pandas
@@ -19,5 +20,7 @@ dependencies:
   - pytest
   - pip
   - pip:
+      - boxsdk
+      - futures<3.0.0
       - blackfynn>=4.0.0
       - pennsieve>=6.1.2

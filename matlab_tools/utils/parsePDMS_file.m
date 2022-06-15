@@ -1,11 +1,7 @@
-function PDMS_data= parsePDMS_file(pathToCSV, outputFileName)
+function PDMS_data= parsePDMS_file(pdms)
 % Parses CSV file and saves "PDMS_data.mat" in the same location
 
-[pth,nm]=fileparts(pathToCSV);
-
-T= readtable(pathToCSV);
-
-disp(['parsing', nm])
+T = pdms; 
 
 T.Programming_Date = T.Programming_Date + calyears(2000);
 
@@ -82,8 +78,6 @@ T.CD_Tx5_B1 = extractNumArray(T.CD_Tx5_B1);
 T.CD_Tx5_B2 = extractNumArray(T.CD_Tx5_B2);
 
 PDMS_data = T;
-save(fullfile(pth, [outputFileName, '.mat']), 'PDMS_data');
-disp(['PDMS parsed and saved at', fullfile(pth, [outputFileName, '.mat'])])
 
 %%
 

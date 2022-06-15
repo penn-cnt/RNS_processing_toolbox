@@ -11,16 +11,21 @@ Functions in this file:
 """
 import datetime as DT
 import os.path as pth
-
+import pandas as pd
 
 def str2dt_usec(s):
     EPOCH = DT.datetime(1970,1,1)
     
     # Either return list or single usec in posixtime
-    try:
-        dt = [DT.datetime.strptime(x,"%Y-%m-%d %H:%M:%S.%f") for x in s]
+    if type(s) is list:
+        if isinstance(s[0], pd.Timestamp):
+            dt = [x.to_pydatetime() for x in s]
+        else:
+            dt = [DT.datetime.strptime(x,"%Y-%m-%d %H:%M:%S.%f") for x in s]
         return [int((x - EPOCH).total_seconds() * 1000000) for x in dt]
-    except:
+    else:
+        if isinstance(s, pd.Timestamp):
+            dt = s.to_pydatetime()
         dt= DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f")
 	
     return int((dt - EPOCH).total_seconds() * 1000000)
