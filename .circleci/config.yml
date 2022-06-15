@@ -39,7 +39,9 @@ jobs:
             conda env create -f rns_processing_toolbox.yml
       - run: 
           name: start conda env
-          command: source activate rns_processing_toolbox
+          command: |
+            source activate rns_processing_toolbox
+            python -m pytest
       - run: 
           name: Run tests
           # This assumes pytest is installed via the install-package step above
