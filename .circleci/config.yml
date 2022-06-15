@@ -35,7 +35,9 @@ jobs:
           # pip-dependency-file: test-requirements.txt  # if you have a different name for your requirements file, maybe one that combines your runtime and test requirements.
       - run:
           name: install dependencies
-          command: conda env create -f rns_processing_toolbox.yml
+          command: |
+            conda init bash
+            conda env create -f rns_processing_toolbox.yml
       - run: 
           name: start conda env
           command: conda activate rns_processing_toolbox
