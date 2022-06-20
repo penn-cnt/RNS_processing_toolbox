@@ -83,7 +83,10 @@ if __name__ == "__main__":
     with open('../config.JSON') as f:
         config= json.load(f)
 
-    ptList = [pt['ID'] for pt in config['patients']]
+    if len(sys.argv)>1:
+        ptList = [sys.argv[1]]
+    else:
+        ptList = [pt['ID'] for pt in config['patients']]
         
     # Set up logging
     logfile = os.path.join(config['paths']['RNS_RAW_Folder'],'logfile.log');

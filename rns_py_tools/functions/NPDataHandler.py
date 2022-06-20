@@ -129,7 +129,7 @@ def NPdeidentifier(ptID, config):
         daily_hist_df['Patient ID']= ptID
         daily_hist_df.to_csv(pth.join(targ_pth, 'Histograms', 'Histogram_Daily.csv'), index = False)
     else: 
-        print('%s file not found, skipping Daily Histograms'%np_daily_histogram)
+        print('%s file not found, skipping Daily Histograms'%pth.basename(np_daily_histogram))
     
     # check if exists
     if os.path.exists(np_hourly_histogram):
@@ -142,7 +142,7 @@ def NPdeidentifier(ptID, config):
         hourly_hist_df['Patient ID']= ptID
         hourly_hist_df.to_csv(pth.join(targ_pth, 'Histograms', 'Histogram_Hourly.csv'), index = False)
     else: 
-        print('%s file not found, skipping Hourly Histograms'%np_hourly_histogram)
+        print('%s file not found, skipping Hourly Histograms'%pth.basename(np_hourly_histogram))
     
 
     # Create Deidentified EpisodeDurations
@@ -162,8 +162,8 @@ def NPdeidentifier(ptID, config):
             epdur_df= epdur_df.drop(columns=['Device ID'])
             epdur_df['Patient ID']= ptID
             epdur_df.to_csv(pth.join(targ_pth, 'EpisodeDurations', ename), index = False)
-        else:
-            print('%s folder not found, skipping Episode Durations'%np_daily_histogram)
+    else:
+        print('%s folder not found, skipping Episode Durations'%pth.basename(np_episodes_folder))
     
     return None
     
@@ -346,6 +346,17 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     dataFolder = NPgetDataPath(ptID, config, 'Dat Folder')
     datcat = pth.join(newFilePath, '%s.dat' % newFilename)
     
+    # First remove rows in ecog_df if associated .dat files are missing
+    fnames = os.listdir(dataFolder);
+    isin = np.array([x in fnames for x in ecog_df.Filename.tolist()])
+    if (~isin).any():
+        idx = np.where(~isin)[0]
+        logging.warning('Files not in data folder, skipping associated rows ' +
+                        'in ecog.csv: %s'%ecog_df.iloc[idx].Filename.tolist())
+        ecog_df = ecog_df.loc[isin, :]
+        if ecog_df.empty:
+            return {}
+              
     # Sort by files by UTC start times
     start_utc,_,_,_ = _getTimeStrings(ecog_df)
     srt_inds = np.argsort(start_utc)
@@ -362,7 +373,7 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
     if datFileCount == 1:
         target1_name = datfiles[0]
         target1 = pth.join(dataFolder, target1_name)
-
+        
         _catExporter(ecog_df, datcat, target1)
 
         rawUTC1 = pd.Timestamp(ecog_df.loc[ecog_df['Filename'] == target1_name, 'Raw UTC timestamp'].iloc[0])
@@ -672,7 +683,7 @@ def _getOffChs(ecog_df, file):
 
 def _catExporter(ecog_df, datcat, file, overlap=0):
     # Saves a given file to concatenated month file
-    # Pads off channels, last variable is # of bytes overlapping to get rid of (default 0)
+    # Pads off channels, last variable is # of bytes overlapping to get rid of (default 0)    
     ch = _getOffChs(ecog_df, file)
     if len(ch) > 0:
         with open(file, 'rb') as outfile:

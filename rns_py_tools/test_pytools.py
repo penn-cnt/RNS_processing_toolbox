@@ -20,6 +20,8 @@ import os
 from functions import utils
 from functions import NPDataHandler as npdh
 from process_raw import loadDeviceDataFromFiles
+import logging
+import sys
 #from pennsieve import Pennsieve
 
 
@@ -90,20 +92,26 @@ def ecog_df(tmpdir):
                                           "Raw UTC timestamp", "ECoG pre-trigger length"])
     return ecog_df     
 
-## UTILS TESTS ##
-def test_ptIdxLookup(tst_config):
-    ptID = 'RNS001'
-    assert utils.ptIdxLookup(tst_config, 'ID', ptID) == 0
+@pytest.fixture
+def tstlogger(tmpdir):
     
-
-#TODO: Test single and list input for converters
+    logfile = os.path.join(tmpdir,'logfile.log');
     
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    
+    FORMAT = '%(asctime)s %(funcName)s: %(message)s'
+    logging.basicConfig(filename=logfile, level=logging.INFO, format=FORMAT)
+    logger = logging.getLogger()
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
 
-## NPDataHandler TESTS ##
-def test_NPdeidentifier(tmpdir,tst_config, ecog_df, exmpl_dat):
+## HELPER SETUP FUNCTIONS
+
+def _setupRawDir(ptID, tst_config, tmpdir, ecog_df, exmpl_dat):
     
     #Create and populate raw directory     
-    ptID = 'RNS001'
     dat_pth = npdh.NPgetDataPath(ptID, tst_config, 'dat folder')
     ecog_pth = npdh.NPgetDataPath(ptID, tst_config, 'ecog catalog')
     
@@ -117,12 +125,43 @@ def test_NPdeidentifier(tmpdir,tst_config, ecog_df, exmpl_dat):
     ecog_df = ecog_df[:-1]  # Remove last entry since it is "wrong"
     ecog_df.to_csv(ecog_pth, index=False)
     
+    return ecog_df
+
+
+## UTILS TESTS ##
+def test_ptIdxLookup(tst_config):
+    ptID = 'RNS001'
+    assert utils.ptIdxLookup(tst_config, 'ID', ptID) == 0
+    
+
+#TODO: Test single and list input for converters
+    
+
+## NPDataHandler TESTS ##
+def test_NPdeidentifier(tstlogger, tmpdir,tst_config, ecog_df, exmpl_dat):
+    
+    #Create and populate raw directory     
+    ptID = 'RNS001'
+    _setupRawDir(ptID, tst_config, tmpdir, ecog_df, exmpl_dat)
+    
     print(tmpdir)
     
     # Test that directory can be deidentified if missing Histograms and EventDurations
     npdh.NPdeidentifier(ptID, tst_config)
     loadDeviceDataFromFiles([ptID], tst_config)
+
+
+def test_dat2mat(tst_config, tmpdir, ecog_df, exmpl_dat):
     
+    ptID = 'RNS001'
+    
+    _setupRawDir(ptID, tst_config, tmpdir, ecog_df, exmpl_dat)
+    npdh.NPdat2mat(ptID, tst_config)
+    
+    print(tmpdir)
+    
+    # test case where some .dat files are missing
+        
 
 def test_readDatFile(tmpdir, ecog_df, exmpl_dat):
     
@@ -158,6 +197,12 @@ def test_createConcatDatLayFiles(tmpdir, tst_config, ecog_df, exmpl_dat):
     with open(os.path.join(p,"12345.dat"), 'wb') as f:
         f.write(bytes(exmpl_dat.T.reshape(-1,1)))
         
+    # Test when a .dat files are missing from folder
+    print('test01_concat')
+    rm_dict1 = npdh.createConcatDatLayFiles(ptID, tst_config, ecog_df.iloc[0:-1], 'test01_concat', newpath)
+    assert rm_dict1 == {}
+    assert os.path.getsize(os.path.join(tmpdir,'test_dats','test01_concat.dat')) == os.path.getsize(os.path.join(p,"12345.dat"))
+        
     with open(os.path.join(p,"23456.dat"), 'wb') as f:
         f.write(bytes(exmpl_dat.T.reshape(-1,1)))
         
@@ -174,15 +219,16 @@ def test_createConcatDatLayFiles(tmpdir, tst_config, ecog_df, exmpl_dat):
         
         
     # Test concatenation when overlap exists 
-    rm_dict1 = npdh.createConcatDatLayFiles(ptID, tst_config, ecog_df.iloc[0:-1], 'test01_concat', newpath)
-    
-    assert rm_dict1 == {'34567.dat': 40.0, '45678.dat': 32.0}
-    assert os.path.getsize(os.path.join(tmpdir,'test_dats','test01_concat.dat')) == 88*4-40 
+    print('test02_concat')
+    rm_dict2 = npdh.createConcatDatLayFiles(ptID, tst_config, ecog_df.iloc[0:-1], 'test02_concat', newpath)
+    assert rm_dict2 == {'34567.dat': 40.0, '45678.dat': 32.0}
+    assert os.path.getsize(os.path.join(tmpdir,'test_dats','test02_concat.dat')) == 88*4-40 
       
     # Test with one file 
-    rm_dict2 = npdh.createConcatDatLayFiles(ptID, tst_config, ecog_df.iloc[0:1], 'test02_concat', newpath)
-    assert rm_dict2 == {}
-    assert os.path.getsize(os.path.join(tmpdir,'test_dats','test02_concat.dat')) == os.path.getsize(os.path.join(p,"12345.dat"))
+    print('test03_concat')
+    rm_dict3 = npdh.createConcatDatLayFiles(ptID, tst_config, ecog_df.iloc[0:1], 'test03_concat', newpath)
+    assert rm_dict3 == {}
+    assert os.path.getsize(os.path.join(tmpdir,'test_dats','test03_concat.dat')) == os.path.getsize(os.path.join(p,"12345.dat"))
     
 def test_getOffChs(ecog_df):
     ch = npdh._getOffChs(ecog_df, "12345.dat")
@@ -216,6 +262,7 @@ def test_getTimeStrings(ecog_df):
     # Test incorrect input type
     with pytest.raises(Exception):
         assert npdh._getTimeStrings(ecog_df.iloc[0])
+    
     
     
     

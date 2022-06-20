@@ -134,8 +134,10 @@ def annotate_from_catalog(ptID, config, pnsv):
     for item in collection.items:
         
         # First check that item has been procesed:
-        if not item.state == 'READY':
-            logging.error('Item %s not processed, current status %s'(item.name, item.state))
+        if not item.state=='READY':
+            if item.state=='UPLOADED':
+                item.process() 
+            logging.warning('Item %s not processed, current status %s'%(item.name, item.state))
             continue
         
         # Get event indexes corresponding to year and month
@@ -163,7 +165,7 @@ def annotate_from_catalog(ptID, config, pnsv):
             
             for i_annot in range(0,len(descriptions)):
                 
-                logging.info('Uploading %d new annotations to %s'%(len(descriptions), item.name))
+                #logging.info('Uploading %d new annotations to %s'%(len(descriptions), item.name))
                 item.insert_annotation(trigger_types.iloc[i_annot], descriptions[i_annot],
                                        start=int(starttimes[i_annot]), 
                                        end=int(endtimes[i_annot]))
@@ -235,7 +237,7 @@ def uploadNewDat(ptID, config, pnsv):
         for mon in range (1,13):
             
             # Skip current month to avoid partial month upload
-            if (mon >= today.month and yr >= today.year):
+            if (mon == today.month and yr == today.year):
                 break
             
             ts_name = '%s_%d_%02d'%(ptID, yr, mon)
@@ -245,9 +247,9 @@ def uploadNewDat(ptID, config, pnsv):
                 
             if mon_inds and not collection.get_items_by_name('%s_%d_%02d'%(ptID, yr, mon)):
                 npdh.createConcatDatLayFiles(ptID, config,
-                                             ecog_df.iloc[mon_inds],
-                                             ts_name,
-                                             tmpPath)  
+                                              ecog_df.iloc[mon_inds],
+                                              ts_name,
+                                              tmpPath)  
 
     #Upload folder with monthly datasets if directory contains files
     if os.listdir(tmpPath):
@@ -255,13 +257,14 @@ def uploadNewDat(ptID, config, pnsv):
             logging.info('Uploading %s data to Pennsieve'%ptID)
             
             try:
-                collection.upload(tmpPath)
+                collection.upload(tmpPath, display_progress=True)
             except TimeoutError:
                 logging.info('Upload Timeout error, trying again')
                 collection.upload(tmpPath)
             
             # Trigger processing of data (might be able to use process 
             # method of collection item)
+            logging.info('processing uploaded items')
             for item in collection.items:
                 if item.state == 'UPLOADED':
                     item.process()
@@ -282,19 +285,19 @@ if __name__ == "__main__":
         config= json.load(f)
     
     #ptList = [pt['ID'] for pt in config['patients']]
-    
-    #uploadNewDat('HUP101', config)
+    pnsv = Pennsieve()
+    uploadNewDat('HUP137', config, pnsv)
     
     #annotate_from_catalog('HUP059', config)
     
     #processPatientTimeseries(ptList, config)
     
-    pnsv = Pennsieve()
+
     
-    ptID = 'HUP096'
-    annot_mat_file = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'Annotations', 'BL Marked Seizures_annots.mat')
-    newLayer = 'GOLD_STANDARD_SEIZURES_BL'
-    annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file, pnsv)
+    # ptID = 'HUP137'
+    # annot_mat_file = os.path.join(config['paths']['RNS_DATA_Folder'], ptID, 'Annotations', 'BL Marked Seizures_annots.mat')
+    # newLayer = 'GOLD_STANDARD_SEIZURES_BL'
+    # annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file, pnsv)
     
     
     
