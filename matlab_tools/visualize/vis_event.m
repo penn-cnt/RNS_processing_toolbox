@@ -75,10 +75,12 @@ function plotButtonPushed(btn, ax)
     i_d = inds(ctr); 
 
     plot(ax, idx2time(ecogT, start_ind(i_d):end_ind(i_d)),...
-    AllData(:,start_ind(i_d):end_ind(i_d))'+[1:4]*options.Spacing) 
+    AllData(:,start_ind(i_d):end_ind(i_d))'+[3:-1:0]*options.Spacing) 
     dp = logical((alldp >= start_ind(i_d)).*(alldp <= end_ind(i_d)));
     xline(ax, idx2time(ecogT, alldp(dp))); 
-    title(ax, sprintf('Event %d: %s', ecogT.ECoGTrigger{i_d}, i_d), ...
+    set(ax, 'XLimSpec', 'tight')
+    set(ax, 'YTick', [0:3]*options.Spacing, 'YTickLabel', {'Ch4', 'Ch3', 'Ch2', 'Ch1'})
+    title(ax, sprintf('Event %d: %s', i_d, ecogT.ECoGTrigger{i_d}), ...
         'Interpreter','none')
 
 end
