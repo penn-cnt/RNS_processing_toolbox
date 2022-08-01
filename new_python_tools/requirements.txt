@@ -1,0 +1,7 @@
+h5py==3.7.0
+matplotlib==3.5.2
+nltk==3.7
+numpy==1.23.1
+pandas==1.4.3
+scipy==1.8.1
+tqdm==4.64.0
