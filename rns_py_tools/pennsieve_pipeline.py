@@ -6,6 +6,9 @@ import sys
 import logging
 import traceback
 import glob
+import time
+import numpy as np
+import scipy.io as sio
 import multiprocessing as mp
 from pennsieve import Pennsieve
 from functions import pennsieve_tools
@@ -15,14 +18,30 @@ def uploadPatientCatalogAnnots(ptList, config):
     ''' Load annotations from ECoG Catalog for all patient indices in ptID_list '''
     
     pnsv = Pennsieve()
+    
+    ptProcessed = np.array([False]*len(ptList))
+    ptList = np.array(ptList)
 
-    for ptID in ptList:
-        try:
-            pennsieve_tools.annotate_from_catalog(ptID, config, pnsv)
-        except:
-            logging.error('ERROR: %s catalog annotation failed'%ptID)
-            logging.error(traceback.format_exc())
-            pass
+    # Processing may take a while
+    for i_iter in range(0,10):
+        
+        for i_pt in np.where(~ptProcessed)[0]:
+            ptID = ptList[i_pt]
+            try:
+                annotComplete = pennsieve_tools.annotate_from_catalog(ptID, config, pnsv)
+                ptProcessed[i_pt] = annotComplete
+            except:
+                logging.error('ERROR: %s catalog annotation failed'%ptID)
+                logging.error(traceback.format_exc())
+                pass
+        
+        if all(ptProcessed):
+            return
+        print('Still processing, trying for %d more minutes' % (10-i_iter))
+        time.sleep(60)
+    
+    print('function timed out, %s are not completed' % ptList[~ptProcessed])
+    
         
 
 def uploadPatientAnnots(ptList, config, annotLayerName=None):
@@ -32,6 +51,7 @@ def uploadPatientAnnots(ptList, config, annotLayerName=None):
     pnsv = Pennsieve()
     
     for ptID in ptList:
+        print(ptID)
         
         # Get Annotation Paths
         if annotLayerName:
@@ -39,11 +59,14 @@ def uploadPatientAnnots(ptList, config, annotLayerName=None):
                                           'Annotations', '%s.mat'%annotLayerName)]
         else: 
             annotPths = glob.glob(os.path.join(config['paths']['RNS_DATA_Folder'],
-                                               ptID,'Annotations','*.mat'))
+                                               ptID,'Annotations', '*.mat'))
+        
+        print(annotPths)
         
         for annotPth in annotPths:
             if os.path.exists(annotPth):
                 annotLayerName = annotPth.split('/')[-1][:-4]
+                print(annotLayerName)
             
                 if annotLayerName == 'Device_Stim':
                     annotLayerName = 'Stims'
@@ -53,16 +76,18 @@ def uploadPatientAnnots(ptList, config, annotLayerName=None):
                                                       annotPth, pnsv)
 
 
-def pullPatientAnnots(config, layerName):
+def pullPatientAnnots(config, layerName, pnsv):
     '''pull annotatios from layerName for all patients in ptID_list '''
 
     ptList = [['ID'] for k in config['patients']]
+    pnsv = Pennsieve()
 
     for pt in ptList:
         outputPath = os.path.join(config['paths']['RNS_DATA_Folder'], pt)
-        pennsieve_tools.pull_annotations(pt, config, layerName, outputPath)
+        annots_df = pennsieve_tools.pull_annotations(pt, config, layerName, pnsv)
 		
         logging.info('Pulling annotations for patient %s'%pt)
+        sio.savemat(os.path.join(outputPath+ layerName +'_annots.mat'), annots_df.to_dict())
 
 
 def uploadNewPatientData(ptList, config):
@@ -71,7 +96,7 @@ def uploadNewPatientData(ptList, config):
     
     for ptID in ptList:
         try:
-            pennsieve_tools.uploadNewDat(ptID, config, pnsv)
+            pennsieve_tools.uploadNewDatByMonth(ptID, config, pnsv)
         except:
             logging.error('%s upload failed'%ptID)
             logging.error(traceback.format_exc())
