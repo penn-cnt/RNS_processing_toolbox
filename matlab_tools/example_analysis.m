@@ -10,7 +10,7 @@ ptList = {config.patients.ID}
 
 ptID = ptList{1};
 
-[ecogT, ecogD, stims, histT, pdms] = loadRNSptData(ptID, rns_config);
+[ecogT, ecogD, stims, histT, pdms] = loadRNSptData(ptID, rns_config, 'timeOffset', true);
 
 AllData = ecogD.AllData;
 

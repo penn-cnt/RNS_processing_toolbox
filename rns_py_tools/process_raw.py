@@ -131,7 +131,7 @@ if __name__ == "__main__":
     else:
         print('NOTE: BoxKey ACCESS TOKEN not in config. The ACCESS TOKEN must be ' +
               'specified if using the Box SDK to download raw data. Otherwise,' +
-              ' raw data can be downloaded if RNS_RAW_FOLDER is a Box Drive path.\n')
+              ' raw data can be downloaded if RNS_RAW_FOLDER can be accessed locally.\n')
                 
     # Create Deidentified copies of files
     x = input('Populate RNS Data folder with deidentified NeuroPace files (y/n)?: ')

@@ -408,7 +408,7 @@ def createConcatDatLayFiles(ptID, config, ecog_df, newFilename, newFilePath):
 
 
         try:
-            assert start1 < start2
+            assert start1 <= start2
         except AssertionError as err:
             logging.error('Start times out of order %s:%s, %s:%s'%(target1_name, 
                                                                       start1.strftime("%m/%d/%Y, %H:%M:%S"),
