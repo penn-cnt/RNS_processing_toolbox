@@ -87,7 +87,7 @@ def pullPatientAnnots(config, layerName, pnsv):
         annots_df = pennsieve_tools.pull_annotations(pt, config, layerName, pnsv)
 		
         logging.info('Pulling annotations for patient %s'%pt)
-        sio.savemat(os.path.join(outputPath+ layerName +'_annots.mat'), annots_df.to_dict())
+        sio.savemat(os.path.join(outputPath, 'Annotations', layerName +'_annots.mat'), annots_df.to_dict('list'))
 
 
 def uploadNewPatientData(ptList, config):
