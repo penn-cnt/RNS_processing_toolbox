@@ -57,9 +57,9 @@ def pull_annotations(ptID, config, layerName, pnsv):
         print(desc)
     
     
-    annots_df = pd.DataFrame({'annots':anns, 'descriptions': desc})
+    annots_dict = {'annots':anns, 'descriptions': desc}
 
-    return annots_df
+    return annots_dict
     
     
 def delete_layer(ptID, config, layerName, pnsv):
