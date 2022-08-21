@@ -4,6 +4,17 @@ function [set1_inclusive_inds, set1_exclusive_inds, set2_included_inds]=filterWi
 % windowsetInside, and where windowsetOutside excludes the entirety of
 % windowsetInside.
 
+% set1_inclusive_inds: indices of windows in windowsetOutside that overlap
+% windows of windowsetInside
+% set1_exclusive_inds: indices of windows in windowsetOutside that have no
+% overlap with windowsetInside
+% set2_included_inds: indices of windowsetInside that are fully contained
+% by 
+
+if isvector(windowsetInside)
+    windowsetInside = [windowsetInside(:), windowsetInside(:)];
+end
+
 % window start is between stim bounds
 noStim_inds1=arrayfun(@(x)sum((x >= windowsetInside(:,1)).* (x<= windowsetInside(:,2)))==0, windowsetOutside(:,1));
 
