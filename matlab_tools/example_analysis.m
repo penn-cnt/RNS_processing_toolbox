@@ -4,7 +4,7 @@
 
 addpath(genpath('matlab_tools'))
 rns_config = jsondecode(fileread('../config.JSON')); 
-ptList = {config.patients.ID}
+ptList = {rns_config.patients.ID}
 
 %% Read in Patient Data
 
@@ -14,7 +14,7 @@ ptID = ptList{1};
 
 AllData = ecogD.AllData;
 
-%% Example
+%% Visualization Example
 
 % Retrive indices of all scheduled events that include or exclude
 % stimulation windows. Filter windows takes two sets of windows (or a set
@@ -26,6 +26,15 @@ AllData = ecogD.AllData;
 i_sched = find(strcmp(ecogT.ECoGTrigger, 'Scheduled'));
 evntIdx= ecogT{i_sched, {'EventStartIdx', 'EventEndIdx'}};
 
-[incl, excl] = filterWindows(evntIdx, StimStartStopIndex); 
+[incl, excl] = filterWindows(evntIdx, stims.StimStartStopIndex); 
 
 vis_event(AllData, ecogT, evntIdx(excl))
+
+%% Feature Calculation Example
+
+ptID = ptList{1}; 
+ftList = {'ll', 'bp', 'plv'};   % feature list
+wlen = 2;                       % windowLength, seconds
+[fts, flabels, windows_info] = RNS_raw_feature_pipeline(ptID, rns_config,...
+    'ftList', ftList, 'wlen', wlen);
+

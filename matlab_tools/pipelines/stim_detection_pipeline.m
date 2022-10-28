@@ -10,7 +10,7 @@ nPts = length(config.patients);
 %% Get and Save Stimulation Indices
 
 % List of patient IDs to find stims for
-ptList = {config.patients.ID};
+ptList = {'HUP192'}%{config.patients.ID};
 
 % Loop finds stimulation start and stop indices and timepoints for all
 % patients, then saves result in Device_Stim.mat in the patient's root
@@ -49,9 +49,7 @@ ptID = ptList{1};
 
 AllData = ecogD.AllData;
 
-i_stim = any(StimStartStopTimes > datetime(2020, 1, 20), 2);
-
-vis_event(AllData, ecogT, oldStims.StimStartStopIndex(find(~a),:))
+vis_event(AllData, ecogT, stims.StimStartStopIndex)
 
 
 
