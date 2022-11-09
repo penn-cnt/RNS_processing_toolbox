@@ -3,3 +3,6 @@
 env/
 config*
 *.pyc
+
+/new_python_tools/data
+/new_python_tools/.idea
