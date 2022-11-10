@@ -2,3 +2,4 @@
 .mat
 env/
 config*
+*.pyc
