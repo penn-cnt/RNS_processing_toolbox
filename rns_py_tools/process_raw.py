@@ -99,7 +99,7 @@ def createDeidentifiedFiles(ptList, config):
       
 if __name__ == "__main__":
    
-    with open('../config.JSON') as f:
+    with open('../config_test.JSON') as f:
         config= json.load(f)
         
     ptList = [pt['ID'] for pt in config['patients']]

@@ -113,7 +113,8 @@ def NPdeidentifier(ptID, config):
     
     # Create Deidentified ECoG Catalog
     ecog_df = pd.read_csv(np_ecog_catalog)
-    ecog_df= ecog_df.drop(columns=['Initials', 'Device ID'])
+    ecog_df= ecog_df.drop(columns=['Initials'])
+    ecog_df['Device ID']= ecog_df.groupby('Device ID').ngroup()+1
     ecog_df['Patient ID']= ptID
     ecog_df.to_csv(pth.join(targ_pth, 'ECoG_Catalog.csv'), index = False)
     
@@ -125,7 +126,7 @@ def NPdeidentifier(ptID, config):
             os.makedirs(pth.join(targ_pth, 'Histograms'))
      
         daily_hist_df = pd.read_csv(np_daily_histogram)
-        daily_hist_df= daily_hist_df.drop(columns=['Device ID'])
+        daily_hist_df['Device ID']= daily_hist_df.groupby('Device ID').ngroup()+1
         daily_hist_df['Patient ID']= ptID
         daily_hist_df.to_csv(pth.join(targ_pth, 'Histograms', 'Histogram_Daily.csv'), index = False)
     else: 
@@ -138,7 +139,7 @@ def NPdeidentifier(ptID, config):
             os.makedirs(pth.join(targ_pth, 'Histograms'))
         
         hourly_hist_df = pd.read_csv(np_hourly_histogram)
-        hourly_hist_df= hourly_hist_df.drop(columns=['Device ID'])
+        hourly_hist_df['Device ID']= hourly_hist_df.groupby('Device ID').ngroup()+1
         hourly_hist_df['Patient ID']= ptID
         hourly_hist_df.to_csv(pth.join(targ_pth, 'Histograms', 'Histogram_Hourly.csv'), index = False)
     else: 
@@ -159,7 +160,7 @@ def NPdeidentifier(ptID, config):
             ename = '_'.join(ename)
             
             epdur_df = pd.read_csv(epdur)
-            epdur_df= epdur_df.drop(columns=['Device ID'])
+            epdur_df['Device ID']= epdur_df.groupby('Device ID').ngroup()+1
             epdur_df['Patient ID']= ptID
             epdur_df.to_csv(pth.join(targ_pth, 'EpisodeDurations', ename), index = False)
     else:

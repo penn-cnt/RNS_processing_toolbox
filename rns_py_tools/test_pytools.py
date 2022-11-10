@@ -20,9 +20,10 @@ import os
 from functions import utils
 from functions import NPDataHandler as npdh
 from process_raw import loadDeviceDataFromFiles
+from functions import pennsieve_tools
 import logging
 import sys
-#from pennsieve import Pennsieve
+from pennsieve import Pennsieve
 
 
 # Set up static data 
@@ -47,13 +48,13 @@ def tst_config(tmpdir):
     tst_config['patients'] =  [{'ID': 'RNS001',
                                 'PDMS_ID': '12345',
                                 'Initials': 'ABC',
-                                'pnsv_dataset': 'N:dataset:1234-5678-91011',
+                                'pnsv_dataset': 'pytest',
                                 'pnsv_package': ' '
                                 }, 
                                {'ID': 'RNS002',
                                 'PDMS_ID': '97890',
                                 'Initials': 'DEF',
-                                'pnsv_dataset': 'N:dataset:1234-5678-91011',
+                                'pnsv_dataset': 'pytest',
                                 'pnsv_package': ' '
                                 }]
      
@@ -74,13 +75,13 @@ def ecog_df(tmpdir):
                  ['ABC', 12345, 111111, '2020-02-06 02:03:35.988', "34567.dat",
                   "Scheduled", 0.044,250, 4, "On", "On", "On", "On",            # overlaps with prev by 20 ms
                  "2020-02-06 02:03:36.004", "2020-02-06 07:03:36.004", 0.016],
-                 ['ABC', 12345, 111111, '2020-02-06 02:03:36.012', "45678.dat", "Scheduled", 0.016, # Completely overlapped by prev
+                 ['ABC', 12345, 211111, '2020-02-06 02:03:36.012', "45678.dat", "Scheduled", 0.016, # Completely overlapped by prev
                   250, 4, "On", "On", "On", "On",
                  "2020-02-06 02:03:36.020", "2020-02-06 07:03:36.020", 0.008],
-                 ['ABC', 12345, 111111, '2020-02-06 02:03:36.064', "56789.dat", "Scheduled", 0.044, # Only has 2 channels on
+                 ['ABC', 12345, 211111, '2020-02-06 02:03:36.064', "56789.dat", "Scheduled", 0.044, # Only has 2 channels on
                   250, 2, "On", "Off", "Off", "On",
                  "2020-02-06 02:03:36.080", "2020-02-06 07:03:36.080", 0.016],
-                 ['ABC', 12345, 111111, '2020-02-06 02:02:35.964', "DNE.dat", "Scheduled", 0.044,
+                 ['ABC', 12345, 211111, '2020-02-06 02:02:35.964', "DNE.dat", "Scheduled", 0.044,
                   250, 4, "On", "On", "On", "On",
                  "2020-02-06 02:02:35.980", "2020-02-06 07:02:35.980", 0.016]]
     ecog_df = pd.DataFrame(ecog_data, 
@@ -118,12 +119,16 @@ def _setupRawDir(ptID, tst_config, tmpdir, ecog_df, exmpl_dat):
     p = os.path.join(tmpdir,dat_pth)
     os.makedirs(p)
     
-    f = open(os.path.join(p,"12345.dat"), 'wb')
-    f.write(bytes(exmpl_dat.T.reshape(-1,1)))
-    f.close()
-    
     ecog_df = ecog_df[:-1]  # Remove last entry since it is "wrong"
     ecog_df.to_csv(ecog_pth, index=False)
+    
+    for i in ecog_df.Filename:
+        f = open(os.path.join(p,i), 'wb')
+        f.write(bytes(exmpl_dat.T.reshape(-1,1)))
+        f.close()
+    
+    
+    print(ecog_pth)
     
     return ecog_df
 
@@ -150,6 +155,25 @@ def test_NPdeidentifier(tstlogger, tmpdir,tst_config, ecog_df, exmpl_dat):
     npdh.NPdeidentifier(ptID, tst_config)
     loadDeviceDataFromFiles([ptID], tst_config)
 
+def test_NPgetDataPath(tmpdir,tst_config, ecog_df, exmpl_dat):
+    
+    ptID = 'RNS001'
+    
+    _setupRawDir(ptID, tst_config, tmpdir, ecog_df, exmpl_dat)
+    
+    # Check DAT path
+    dat_pth = npdh.NPgetDataPath(ptID, tst_config, 'dat folder')
+    expected_dat_pth = 'raw_data/sample_institution_ABC_12345 EXTERNAL #PHI/sample_institution_ABC_12345 Data EXTERNAL #PHI'
+    assert(dat_pth == os.path.join(tmpdir, expected_dat_pth))
+    assert(os.path.exists(os.path.join(tmpdir, expected_dat_pth)))
+    
+    # Check ECoG path
+    ecog_pth = npdh.NPgetDataPath(ptID, tst_config, 'ecog catalog')
+    expected_ecog_pth = 'raw_data/sample_institution_ABC_12345 EXTERNAL #PHI/sample_institution_ABC_12345_ECoG_Catalog.csv'
+    assert(ecog_pth == os.path.join(tmpdir, expected_ecog_pth))
+    assert(os.path.exists(os.path.join(tmpdir, expected_ecog_pth)))
+    
+    
 
 def test_dat2mat(tst_config, tmpdir, ecog_df, exmpl_dat):
     
@@ -160,7 +184,7 @@ def test_dat2mat(tst_config, tmpdir, ecog_df, exmpl_dat):
     
     print(tmpdir)
     
-    # test case where some .dat files are missing
+    # TODO: test case where some .dat files are missing
         
 
 def test_readDatFile(tmpdir, ecog_df, exmpl_dat):
@@ -268,8 +292,49 @@ def test_getTimeStrings(ecog_df):
     
 ## Pennsieve Tools TESTS ##
 
-# Test uplooad
+# # Test uplooad
+# def test_Pennsieve_layer_tools(tst_config, tmpdir, ecog_df, exmpl_dat):
+   
+#     pnsv = Pennsieve()
+#     ptID = 'RNS001'
+#     layerName = 'test_layer'
+    
+#     _setupRawDir(ptID, tst_config, tmpdir, ecog_df, exmpl_dat)
+    
+#     # Upload example dat
+#     pennsieve_tools.uploadNewDatByMonth(ptID, tst_config, pnsv)
+#     ds = pnsv.get_dataset("pytest")
+#     assert(ds.name == "pytest")
+    
+#    # uploadSingleDat(ptID, tst_config, pnsv)
+    
+#     # Process TimeSeries
+#     #pennsieve_tools.processPatientTimeseries(ptID, tst_config, pnsv)
+    
+#     # Add Annotations
+#     annotComplete = pennsieve_tools.annotate_UTC_from_catalog(ptID, tst_config, pnsv)
+#     col = ds.items[0]
+#     ts = col.items[0]
+#     isReady = (ts.state == 'READY')
+#     assert(annotComplete == isReady)
+    
+#     # Add Layer
+    
+    # Delete Layers
+    
+    # Delete dataset
+    
+    # pnsv.delete(ds.id)
+    # dsetNames = [x.name for x in pnsv.datasets()]
+    # assert("pytest" not in dsetNames)
+    
+    
+    #pennsieve_tools.add_empty_layer(ptID, tst_config, layerName, pnsv)
+    
+    
+
 # Test download
+# Test 
     
     
 

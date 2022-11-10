@@ -28,7 +28,7 @@ def uploadPatientCatalogAnnots(ptList, config):
         for i_pt in np.where(~ptProcessed)[0]:
             ptID = ptList[i_pt]
             try:
-                annotComplete = pennsieve_tools.annotate_from_catalog(ptID, config, pnsv)
+                annotComplete = pennsieve_tools.annotate_UTC_from_catalog(ptID, config, pnsv)
                 ptProcessed[i_pt] = annotComplete
             except:
                 logging.error('ERROR: %s catalog annotation failed'%ptID)

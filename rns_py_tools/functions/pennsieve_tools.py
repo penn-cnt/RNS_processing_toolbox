@@ -30,7 +30,119 @@ import os
 import shutil
 
 
+
+# Data Functions
+
+def processPatientTimeseries(ptIDs, config, pnsv):
+    
+    for ptID in ptIDs:
+        collection = get_pt_collection(ptID, config, pnsv)
+        
+        for item in collection.items:
+            if item.state == 'UPLOADED':
+                item.process()            
+    
+
+def get_pt_collection(ptID, config, pnsv):
+    
+    i_pt = utils.ptIdxLookup(config, 'ID', ptID)
+    dataset = config['patients'][i_pt]['pnsv_dataset']
+    ds = pnsv.get_dataset(dataset)
+    
+    # Get collection for ptID, create one if nonexistent
+    collection  = [i for i in ds.items if i.type == 'Collection' and i.name == ptID]
+    if not collection:
+        collection = ds
+    else: collection = collection[0]
+    
+    return collection
+        
+
+def uploadSingleDat(ptID, config, pnsv, ecog_catalog_inds = None):
+    
+    logging.info('Consolidating %s data for Pennsieve'%ptID)
+    
+    i_pt = utils.ptIdxLookup(config, 'ID', ptID)
+    dataset = config['patients'][i_pt]['pnsv_dataset']
+    
+    collection = pnsv.get_dataset(dataset)    
+
+    [ecog_df, tmpPath] = _upload_prep(ptID, config, pnsv, ecog_catalog_inds)
+    
+    ts_name = ptID
+    npdh.createConcatDatLayFiles(ptID, config, ecog_df, ts_name, tmpPath)  
+
+    _upload_dir_to_pnsv(ptID, tmpPath, collection)
+    
+
+def uploadNewDatByMonth(ptID, config, pnsv, ecog_catalog_inds=None):
+    """
+    Uploads new .dat files to patient folder in dataset. All .dat files
+    for a given month are concatenated into a single timeseries.
+    
+    Args:
+        ptID (string): DESCRIPTION.
+        config (dict): config dictionary
+        pnsv (Pennsieve): Pennsieve object
+        ecog_catalog_inds ([int], optional): indices of selected events 
+        in ecog catalog to upload. Defaults to None.
+
+    Returns:
+        None.
+
+    """
+
+    logging.info('Consolidating %s data for Pennsieve'%ptID)
+
+    i_pt = utils.ptIdxLookup(config, 'ID', ptID)
+    dataset = config['patients'][i_pt]['pnsv_dataset']
+    
+    try:
+        ds = pnsv.get_dataset(dataset)
+    except:
+        ds = pnsv.create_dataset(dataset)
+        
+    # Get collection for ptID, create one if nonexistent
+    collection  = [i for i in ds.items if i.type == 'Collection' and i.name == ptID]
+    print('trying to get a collection')
+    if not collection:
+        collection = ds.create_collection(ptID)
+    else: collection = collection[0]
+    [ecog_df, tmpPath] = _upload_prep(ptID, config, pnsv, ecog_catalog_inds)
+    
+    utc_dt = [DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f") for s in ecog_df['Raw UTC timestamp']]
+    yrmin= min(y.year for y in utc_dt)
+    yrmax = max(y.year for y in utc_dt)
+    today = DT.date.today()
+            
+    # Concatenate .dat files for each month if collection doesn't exist, then upload 
+    for yr in range(yrmin,yrmax+1):
+        for mon in range (1,13):
+            
+            # Skip current month to avoid partial month upload
+            if (mon == today.month and yr == today.year):
+                break
+            
+            ts_name = '%s_%d_%02d'%(ptID, yr, mon)
+            
+            mon_inds = [i for i, x in enumerate(utc_dt)
+                    if x.month == mon and x.year == yr]
+                
+            if mon_inds and not collection.get_items_by_name('%s_%d_%02d'%(ptID, yr, mon)):
+                npdh.createConcatDatLayFiles(ptID, config,
+                                              ecog_df.iloc[mon_inds],
+                                              ts_name,
+                                              tmpPath) 
+    
+    _upload_dir_to_pnsv(ptID, tmpPath, collection)
+
+
+
+
+# Annotation Functions
+
 def pull_annotations(ptID, config, layerName, pnsv):
+    
     
     collection = get_pt_collection(ptID, config, pnsv)
     
@@ -61,6 +173,12 @@ def pull_annotations(ptID, config, layerName, pnsv):
 
     return annots_dict
     
+def add_empty_layer(ptID, config, layerName, pnsv):
+    
+    collection = get_pt_collection(ptID, config, pnsv)
+    for ts in collection.items:
+            if ts.type == 'TimeSeries':
+                ts.add_layer(layerName)
     
 def delete_layer(ptID, config, layerName, pnsv):
     
@@ -71,14 +189,6 @@ def delete_layer(ptID, config, layerName, pnsv):
                 layer = ts.get_layer(layerName)
                 ts.delete_layer(layer)
             
-            
-def add_empty_layer(ptID, config, layerName, pnsv):
-    
-    collection = get_pt_collection(ptID, config, pnsv)
-    for ts in collection.items:
-            if ts.type == 'TimeSeries':
-                ts.add_layer(layerName)
-
 
 def annotate_UTC_from_mat(ptID, config, newLayer, annot_mat_file, pnsv):
     
@@ -189,8 +299,7 @@ def annotate_UTC_from_dataframe(ptID, config, newLayer, annot_df, pnsv):
                                            end = int(round(annotend[i]/1000, 0)*1000))
                     
 
-
-def insert_annots_in_timeseries(newLayer, annot_df, ts):
+def annotate_timeseries_from_dataframe(newLayer, annot_df, ts):
     
     annotstart = annot_df['annot_start']  # Get annots, should be stored in posixtime microseconds
     annotend = annot_df['annot_end'] 
@@ -212,10 +321,8 @@ def insert_annots_in_timeseries(newLayer, annot_df, ts):
                                start = int(round(annotstart[i]/1000, 0)*1000), 
                                end = int(round(annotend[i]/1000, 0)*1000))
     
-        
 
-
-def annotate_from_catalog(ptID, config, pnsv):
+def annotate_UTC_from_catalog(ptID, config, pnsv):
     ''' Uploads all annotations from ecog_catalog to a patient's data. Does not 
         upload duplicate annotations, skips upload if a timeseries is not processed. 
     '''
@@ -247,8 +354,9 @@ def annotate_from_catalog(ptID, config, pnsv):
         if not item.state=='READY':
             if item.state=='UPLOADED':
                 item.process() 
-                itemsProcessed = False
+            itemsProcessed = False
             logging.warning('Item %s not processed, current status %s'%(item.name, item.state))
+         
             continue
         
         # Get event indexes corresponding to year and month
@@ -281,124 +389,11 @@ def annotate_from_catalog(ptID, config, pnsv):
                                        start=int(starttimes[i_annot]), 
                                        end=int(endtimes[i_annot]))
         
-        return itemsProcessed
+    return itemsProcessed
         
 
-def uploadDatLay(collection, datlay_folder):
-    return 0
 
-def processPatientTimeseries(ptIDs, config, pnsv):
-    
-    for ptID in ptIDs:
-        collection = get_pt_collection(ptID, config, pnsv)
-        
-        for item in collection.items:
-            if item.state == 'UPLOADED':
-                item.process()            
-    
-def getStartEndtimes(ecog_df):
-    
-    trigger_utc_datetime = ecog_df['Raw UTC timestamp']
-    trigger_utc = utils.str2dt_usec(trigger_utc_datetime.tolist())
-    trigger_local = utils.str2dt_usec(ecog_df['Raw local timestamp'].tolist())
-    start_local =  utils.str2dt_usec(ecog_df['Timestamp'].tolist())
-    ecog_len  =  ecog_df['ECoG length']
-    
-    tz_offset = np.subtract(trigger_utc,trigger_local)
-    starttimes = np.add(start_local,tz_offset)
-    endtimes = list(ecog_len*1000000 + starttimes)
-    
-    return starttimes, endtimes
-
-def get_pt_collection(ptID, config, pnsv):
-    
-    i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    dataset = config['patients'][i_pt]['pnsv_dataset']
-    ds = pnsv.get_dataset(dataset)
-    
-    # Get collection for ptID, create one if nonexistent
-    collection  = [i for i in ds.items if i.type == 'Collection' and i.name == ptID]
-    if not collection:
-        collection = ds
-    else: collection = collection[0]
-    
-    return collection
-        
-
-def uploadSingleDat(ptID, config, pnsv, ecog_catalog_inds = None):
-    
-    logging.info('Consolidating %s data for Pennsieve'%ptID)
-    
-    i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    dataset = config['patients'][i_pt]['pnsv_dataset']
-    
-    collection = pnsv.get_dataset(dataset)    
-
-    [ecog_df, tmpPath] = _upload_prep(ptID, config, pnsv, ecog_catalog_inds)
-    
-    ts_name = ptID
-    npdh.createConcatDatLayFiles(ptID, config, ecog_df, ts_name, tmpPath)  
-
-    _upload_dir_to_pnsv(ptID, tmpPath, collection)
-    
-
-def uploadNewDatByMonth(ptID, config, pnsv, ecog_catalog_inds=None):
-    """
-    Uploads new .dat files to patient folder in dataset. All .dat files
-    for a given month are concatenated into a single timeseries.
-    
-    Args:
-        ptID (string): DESCRIPTION.
-        config (dict): config dictionary
-        pnsv (Pennsieve): Pennsieve object
-        ecog_catalog_inds ([int], optional): indices of selected events 
-        in ecog catalog to upload. Defaults to None.
-
-    Returns:
-        None.
-
-    """
-
-    logging.info('Consolidating %s data for Pennsieve'%ptID)
-
-    i_pt = utils.ptIdxLookup(config, 'ID', ptID)
-    dataset = config['patients'][i_pt]['pnsv_dataset']
-    ds = pnsv.get_dataset(dataset)
-    
-    # Get collection for ptID, create one if nonexistent
-    collection  = [i for i in ds.items if i.type == 'Collection' and i.name == ptID]
-    if not collection:
-        collection = ds.create_collection(ptID)
-    else: collection = collection[0]
-    [ecog_df, tmpPath] = _upload_prep(ptID, config, pnsv, ecog_catalog_inds)
-    
-    utc_dt = [DT.datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f") for s in ecog_df['Raw UTC timestamp']]
-    yrmin= min(y.year for y in utc_dt)
-    yrmax = max(y.year for y in utc_dt)
-    today = DT.date.today()
-            
-    # Concatenate .dat files for each month if collection doesn't exist, then upload 
-    for yr in range(yrmin,yrmax+1):
-        for mon in range (1,13):
-            
-            # Skip current month to avoid partial month upload
-            if (mon == today.month and yr == today.year):
-                break
-            
-            ts_name = '%s_%d_%02d'%(ptID, yr, mon)
-            
-            mon_inds = [i for i, x in enumerate(utc_dt)
-                    if x.month == mon and x.year == yr]
-                
-            if mon_inds and not collection.get_items_by_name('%s_%d_%02d'%(ptID, yr, mon)):
-                npdh.createConcatDatLayFiles(ptID, config,
-                                              ecog_df.iloc[mon_inds],
-                                              ts_name,
-                                              tmpPath) 
-    
-    _upload_dir_to_pnsv(ptID, tmpPath, collection)
-
-
+# Helper Functions
 
 def _upload_prep(ptID, config, pnsv, ecog_catalog_inds):
             
@@ -461,6 +456,8 @@ if __name__ == "__main__":
     #ptList = [pt['ID'] for pt in config['patients']]
     pnsv = Pennsieve()
     uploadNewDatByMonth('HUP137', config, pnsv)
+    
+    pnsv.delete()
     
     #annotate_from_catalog('HUP059', config)
     
