@@ -12,7 +12,12 @@ function [set1_inclusive_inds, set1_exclusive_inds, set2_included_inds]=filterWi
 % by 
 
 if isvector(windowsetInside)
-    windowsetInside = [windowsetInside(:), windowsetInside(:)];
+    if length(windowsetInside) == 2 && isrow(windowsetInside)
+        warning(['One window in windowsetInside found. Input a column vector if ' ...
+            'windowsetInside should be interpreted as two individual datapoints.'])
+    else
+        windowsetInside = [windowsetInside(:), windowsetInside(:)];
+    end
 end
 
 % window start is between stim bounds

@@ -3,7 +3,7 @@ function vis_event(AllData, ecogT, datapoints, options)
 %
 % Example: 
 % vis_event(AllData, Ecog_Events, datapoints)  %datapoints are indices
-% vis_event(--, 'Time')                                 %datapoints are timepoints
+% vis_event(--, 'Spacing', spacing)                     % datapoints are timepoints
 %
 % Inputs: 
 %   AllData- vector of data in microseconds
@@ -20,10 +20,17 @@ arguments
     ecogT table
     datapoints double
     options.Spacing (1,1) double = 300
+    options.labels = {}
 end
 
 if size(AllData,1) ~= 4
     AllData = AllData';
+end
+
+if ~isempty(options.labels)
+    assert(all(size(datapoints) == size(options.labels)), ...
+        'labels must have the same dimensions as datapoints')
+    labels = options.labels(:); 
 end
 
 if isvector(datapoints)
@@ -74,10 +81,20 @@ function plotButtonPushed(btn, ax)
 
     i_d = inds(ctr); 
 
+    cla(ax, 'reset')
     plot(ax, idx2time(ecogT, start_ind(i_d):end_ind(i_d)),...
     AllData(:,start_ind(i_d):end_ind(i_d))'+[3:-1:0]*options.Spacing) 
     dp = logical((alldp >= start_ind(i_d)).*(alldp <= end_ind(i_d)));
+
     xline(ax, idx2time(ecogT, alldp(dp))); 
+
+    % Add labels to top of detection indicators
+    if ~isempty(options.labels)
+        yl = get(ax, 'ylim');
+        text(ax, idx2time(ecogT, alldp(dp)), repmat(yl(2),1,sum(dp)), labels(dp))
+        set(ax, 'ylim', [yl(1), yl(2)+100])
+    end
+
     set(ax, 'XLimSpec', 'tight')
     set(ax, 'YTick', [0:3]*options.Spacing, 'YTickLabel', {'Ch4', 'Ch3', 'Ch2', 'Ch1'})
     title(ax, sprintf('Event %d: %s', i_d, ecogT.ECoGTrigger{i_d}), ...

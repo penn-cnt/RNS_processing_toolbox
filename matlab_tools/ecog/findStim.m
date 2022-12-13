@@ -34,7 +34,7 @@ function [StimStartStopIndex, stats] = findStim(AllData, ecogT, Min, show)
 %   Arjun Ravi Shankar
 %   Litt Lab July 2018
 %
-%   Updated Brittany Scheid (bscheid@seas.upenn.edu) & Kenji Anon Aug 2022
+%   Updated Brittany Scheid (bscheid@seas.upenn.edu) & Kenji Aono Aug 2022
 %   
 
 %% Variable Input Defaults

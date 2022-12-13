@@ -4,13 +4,13 @@
 
 % load configuration settings and toolboxes
 addpath(genpath('matlab_tools'))
-config= jsondecode(fileread('config.JSON')); 
-nPts = length(config.patients);
+rns_config= jsondecode(fileread('config.JSON')); 
+nPts = length(rns_config.patients);
 
 %% Get and Save Stimulation Indices
 
 % List of patient IDs to find stims for
-ptList = {'HUP192'}%{config.patients.ID};
+ptList = {rns_config.patients.ID};
 
 % Loop finds stimulation start and stop indices and timepoints for all
 % patients, then saves result in Device_Stim.mat in the patient's root
@@ -18,19 +18,19 @@ ptList = {'HUP192'}%{config.patients.ID};
 
 for ptID = ptList
     
-    savepath = ptPth(ptID{1}, config, 'device stim');
+    savepath = ptPth(ptID{1}, rns_config, 'device stim');
    % if exist(savepath, 'file'), continue, end % Skip if already exists
 
    % Create annotations folder
-   if ~exist(ptPth(ptID{1}, config, 'Annotations'), 'dir')
-       mkdir(ptPth(ptID{1}, config, 'Annotations'))
+   if ~exist(ptPth(ptID{1}, rns_config, 'Annotations'), 'dir')
+       mkdir(ptPth(ptID{1}, rns_config, 'Annotations'))
    end
     
     disp(ptID) 
     
     % load patient specific info:
-    ecogT = readtable(ptPth(ptID{1}, config, 'ecog catalog'));
-    ecogD = matfile(ptPth(ptID{1}, config, 'device data'));
+    ecogT = readtable(ptPth(ptID{1}, rns_config, 'ecog catalog'));
+    ecogD = matfile(ptPth(ptID{1}, rns_config, 'device data'));
     
    % Get Stimulation times and Indices
    [StimStartStopIndex, StimStats]= findStim(ecogD.AllData, ecogT);
@@ -45,7 +45,7 @@ end
 
 % Visually check that stimulations are being detected
 ptID = ptList{1};
-[ecogT, ecogD, stims, ~, pdms] = loadRNSptData(ptID, config);
+[ecogT, ecogD, stims, ~, pdms] = loadRNSptData(ptID, rns_config);
 
 AllData = ecogD.AllData;
 
