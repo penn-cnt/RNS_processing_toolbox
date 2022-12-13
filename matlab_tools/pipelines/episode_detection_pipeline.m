@@ -17,9 +17,9 @@ ptList = {rns_config.patients.ID};
 
 for ptID = ptList
 
-    ecogT = loadRNSptData(ptID, rns_config);
+    ecogT = loadRNSptData(ptID{1}, rns_config);
     recDetectT = getDetectionsInRecordedEvents(rns_config, ecogT);
-    save(ptPth(ptID, rns_config, 'recorded detections'), 'recDetectT')
+    save(ptPth(ptID{1}, rns_config, 'recorded detections'), 'recDetectT')
 
 end
 
