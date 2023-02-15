@@ -83,6 +83,4 @@ def getDataPath(ptID, config, dataName):
         'episode durations folder': pth.join(fld, ' EpisodeDurations')
             }
     
-    return switcher.get(dataName.lower(), "File/Folder not found")
-    
-    
+    return switcher.get(dataName.lower(), "File/Folder not found")    

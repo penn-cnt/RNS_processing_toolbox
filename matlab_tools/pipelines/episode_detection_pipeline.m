@@ -27,7 +27,7 @@ end
 
 ptID = ptList{1}; 
 
-[ecogT, ecogD] = loadRNSptData(ptID, rns_config);
+[ecogT, ecogD, stims] = loadRNSptData(ptID, rns_config);
 AllData = ecogD.AllData; 
 load(ptPth(ptID, rns_config, 'recorded detections'));
 
@@ -38,3 +38,6 @@ labels = detectTypes(counts);
 
 % Plot all detections
 vis_event(AllData, ecogT, recDetectT.EpisodeStartIdx, 'labels',labels)
+vis_event(AllData, ecogT, stims.StimStartStopIndex)
+
+
