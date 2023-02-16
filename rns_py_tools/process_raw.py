@@ -40,7 +40,7 @@ def downloadPatientDataFromBox(ptList, config):
 
 def loadDeviceDataFromFiles(ptList, config):
 
-    errlist= [];
+    errlist= []
     
     for ptID in ptList:
         
@@ -99,13 +99,16 @@ def createDeidentifiedFiles(ptList, config):
       
 if __name__ == "__main__":
    
-    with open('../config_test.JSON') as f:
+    with open('../config.JSON') as f:
         config= json.load(f)
-        
-    ptList = [pt['ID'] for pt in config['patients']]
+
+    if len(sys.argv)>1:
+        ptList = [sys.argv[1]]
+    else:
+        ptList = [pt['ID'] for pt in config['patients']]
     
     # Set up logging
-    logfile = os.path.join(config['paths']['RNS_RAW_Folder'],'logfile.log');
+    logfile = os.path.join(config['paths']['RNS_RAW_Folder'],'raw_processing.log');
     
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)

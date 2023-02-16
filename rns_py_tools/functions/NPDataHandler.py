@@ -158,7 +158,10 @@ def NPdeidentifier(ptID, config):
             ename = pth.basename(epdur).split('_')[3:]
             ename.insert(0,ptID)
             ename = '_'.join(ename)
-            
+
+            if os.path.getsize(epdur) == 0:
+                continue
+                      
             epdur_df = pd.read_csv(epdur)
             epdur_df['Device ID']= epdur_df.groupby('Device ID').ngroup()+1
             epdur_df['Patient ID']= ptID

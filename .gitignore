@@ -1,9 +1,13 @@
 ._*
+.*
 .mat
 env/
 config*
 *.pyc
+
+#FileExtensions
 *.xlsx
+*.csv
 
 
 __pycache__/
