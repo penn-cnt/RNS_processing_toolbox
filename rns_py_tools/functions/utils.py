@@ -12,6 +12,7 @@ Functions in this file:
 import datetime as DT
 import os.path as pth
 import pandas as pd
+import numpy as np
 
 def str2dt_usec(s):
     EPOCH = DT.datetime(1970,1,1)
@@ -84,3 +85,37 @@ def getDataPath(ptID, config, dataName):
             }
     
     return switcher.get(dataName.lower(), "File/Folder not found")    
+
+
+def filterWindows(windowsetOutside, windowsetInside):
+    # Returns List where windowsetOutside _inculdes_ the entirety of windowsetInside, 
+    # and where windowsetOutside excludes the entirety of windowsetInside.
+    # set1_inclusive_inds: indices of windows in windowsetOutside that overlap
+    # windows of windowsetInside
+    # set1_exclusive_inds: indices of windows in windowsetOutside that have no
+    # overlap with windowsetInside
+    # set2_included_inds: indices of windowsetInside that are fully contained by 
+    
+    if np.ndim(windowsetInside) == 1:
+        if len(windowsetInside) == 2:
+            print('Warning: windowsetInside will be interpreted as two separate datapoints.', 
+                'Input a 2D numpy array if the input should be interpreted as a single window')
+        windowsetInside = np.stack((windowsetInside, windowsetInside), axis=1)
+    
+    # window start is between stim bounds
+    noStim_inds1 = np.array([np.sum((x >= windowsetInside[:, 0]) & (x <= windowsetInside[:, 1]))==0 for x in windowsetOutside[:, 0]])
+    
+    # window end is between stim bounds
+    noStim_inds2 = np.array([np.sum((x >= windowsetInside[:, 0]) & (x <= windowsetInside[:, 1]))==0 for x in windowsetOutside[:, 1]])
+    
+    # window contains both stim bounds
+    noStim_inds3 = np.array([np.sum((windowsetOutside[i, 0] <= windowsetInside[:, 0]) & (windowsetOutside[i, 1] >= windowsetInside[:, 1]))==0 for i in range(windowsetOutside.shape[0])])
+    
+    set1_exclusive_inds = (noStim_inds1 & noStim_inds2 & noStim_inds3)
+    set1_inclusive_inds = ~set1_exclusive_inds
+    
+    set2_included_inds = np.array([np.sum((windowsetInside[i, 0] >= windowsetOutside[:, 0]) & (windowsetInside[i, 1] <= windowsetOutside[:, 1]))==1 for i in range(windowsetInside.shape[0])])
+    
+    return set1_inclusive_inds, set1_exclusive_inds, set2_included_inds
+
+

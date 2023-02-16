@@ -137,6 +137,44 @@ def _setupRawDir(ptID, tst_config, tmpdir, ecog_df, exmpl_dat):
 def test_ptIdxLookup(tst_config):
     ptID = 'RNS001'
     assert utils.ptIdxLookup(tst_config, 'ID', ptID) == 0
+
+
+def test_filterWindows():
+    win1 = np.array([[1,3], [6,7],
+        [10,12],
+        [13,16],
+        [18,21],
+        [24,26],
+        [25,27],
+        [31,32]])
+
+    win2 = np.array([[2,4],
+            [5,8],
+            [9,11],
+            [14,15],
+            [17,20],
+            [19,22],
+            [23,28],
+            [29, 30],
+            [33,34]])
+
+    [incl1, excl1, set2] = utils.filterWindows(win1, win2)
+    [incl2, excl2, set1] = utils.filterWindows(win2, np.array([11,12,13]))
+    [incl3, excl3, set3] = utils.filterWindows(win2, np.array([11,12]))
+
+    assert(np.all(incl1 == [1,1,1,1,1,1,1,0]))
+    assert(np.all(excl1 == [0,0,0,0,0,0,0,1]))
+    assert(np.all(set2 == [0,0,0,1,0,0,0,0,0]))
+
+    assert(np.all(incl2 == [0,0,1,0,0,0,0,0,0]))
+    assert(np.all(excl2 == [1,1,0,1,1,1,1,1,1]))
+    assert(np.all(set1 == [1,0,0]))
+
+    assert(np.all(incl3 == [0,0,1,0,0,0,0,0,0]))
+    assert(np.all(excl3 == [1,1,0,1,1,1,1,1,1]))
+    assert(np.all(set3 == [1,0]))
+
+
     
 
 #TODO: Test single and list input for converters

@@ -19,7 +19,7 @@ win2 = [[2,4];
         [33,34]];
 
 [incl1, excl1, set2] = filterWindows(win1, win2);
-[incl2, excl2] = filterWindows(win2, win1);
+[incl2, excl2, set1] = filterWindows(win2, win1);
 
 
 figure(1); clf; hold on;
