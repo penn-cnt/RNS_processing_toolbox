@@ -3,6 +3,7 @@
 % Note: run pipeline from the "RNS_processing_toolbox" folder
 
 % load configuration settings and toolboxes
+clear;
 addpath(genpath('matlab_tools'))
 rns_config= jsondecode(fileread('config.JSON')); 
 nPts = length(rns_config.patients);
@@ -22,8 +23,8 @@ for ptID = ptList
    % if exist(savepath, 'file'), continue, end % Skip if already exists
 
    % Create annotations folder
-   if ~exist(ptPth(ptID{1}, rns_config, 'Annotations'), 'dir')
-       mkdir(ptPth(ptID{1}, rns_config, 'Annotations'))
+   if ~exist(ptPth(ptID{1}, rns_config, 'annotations'), 'dir')
+       mkdir(ptPth(ptID{1}, rns_config, 'annotations'))
    end
     
     disp(ptID) 
