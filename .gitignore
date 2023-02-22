@@ -1,9 +1,11 @@
 ._*
 .*
-.mat
+*.mat
 env/
 config*
 *.pyc
+*.asv
+!.gitignore
 
 #FileExtensions
 *.xlsx

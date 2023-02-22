@@ -11,14 +11,21 @@ Created on Wed Sep 16 16:43:22 2020
 @author: bscheid
 """
 
+#%%
+
 import json
 import os
 import sys
 import pandas as pd
 import hdf5storage
 import traceback
+from datetime import datetime
+sys.path.insert(1,os.getcwd())
 from functions import NPDataHandler as npdh
+from functions import utils
 import logging
+
+#%%
 
 def downloadPatientDataFromBox(ptList, config):
     
@@ -31,13 +38,35 @@ def downloadPatientDataFromBox(ptList, config):
     )
 
     client = Client(auth)
-    
+
     for ptID in ptList:
         npdh.NPdownloadNewBoxData(ptID, config, client)
     
     return
-    
 
+
+#%% 
+
+def update_config_dataRange(ptList, config):
+
+    for ptID in ptList:
+
+        catalog_csv = utils.getDataPath(ptID, config, 'ecog catalog')
+        if not os.path.exists(catalog_csv):
+            print('Ecog path not found for %s, skipping...'%ptID)
+            continue
+        ecog_df = pd.read_csv(catalog_csv)
+        idx = utils.ptIdxLookup(config, 'ID', ptID)
+
+        data_start = ecog_df['Raw UTC timestamp'].iloc[0]
+        data_end = ecog_df['Raw UTC timestamp'].iloc[-1]
+        config['patients'][idx]['UTC_date_range'] = [data_start, data_end]
+
+    return config
+
+
+#%%
+    
 def loadDeviceDataFromFiles(ptList, config):
 
     errlist= []
@@ -45,6 +74,10 @@ def loadDeviceDataFromFiles(ptList, config):
     for ptID in ptList:
         
        try:
+           
+           # Create deidentified versions of csv files
+           logging.info('Creating deidentified files for %s'%ptID)
+           npdh.NPdeidentifier(ptID, config)
 
            logging.info('loading data for patient %s ...'%ptID)
           
@@ -87,23 +120,21 @@ def loadDeviceDataFromFiles(ptList, config):
        if errlist:
             logging.warning('ERROR SUMMARY: load data failed for %s'%errlist)
        
-    
-       
-def createDeidentifiedFiles(ptList, config):
-            
-    for ptID in ptList:
-        logging.info('Creating deidentified files for %s'%ptID)
-        npdh.NPdeidentifier(ptID, config)
-        
-        
-      
+                      
+
 if __name__ == "__main__":
+    """ Usage: python process_raw.py ../config.JSON HUPxyz"""
    
-    with open('../config.JSON') as f:
+    if len(sys.argv)>1:
+        confName = sys.argv[1]
+    else:
+        confName = '../config.JSON'
+
+    with open(confName) as f:
         config= json.load(f)
 
-    if len(sys.argv)>1:
-        ptList = [sys.argv[1]]
+    if len(sys.argv)>2:
+        ptList = [sys.argv[2]]
     else:
         ptList = [pt['ID'] for pt in config['patients']]
     
@@ -138,11 +169,20 @@ if __name__ == "__main__":
                 
     # Create Deidentified copies of files
     x = input('Populate RNS Data folder with deidentified NeuroPace files (y/n)?: ')
-    if x =='y':     
-        createDeidentifiedFiles(ptList, config)
-    
-    # Create readable device recording objects
-    x = input('Aggregate NeuroPace device recordings (y/n)?: ')
-    if x =='y': 
+    if x =='y':
+       
+        # Create Backup config file with former start/end dates
+        json_object = json.dumps(config, indent=4)
+        fname = os.path.join(os.path.dirname(confName),
+         'config_backup_%s.JSON'%datetime.today().strftime('%S%M%H%d%m%Y'))
+        with open(fname, "w") as outfile:
+            outfile.write(json_object)  
+
         loadDeviceDataFromFiles(ptList, config)
+
+        # Update current config with new dataRanges
+        update_config_dataRange(ptList, config)
+        json_object = json.dumps(config, indent=4)
+        with open(os.path.join(confName), "w") as outfile:
+            outfile.write(json_object)  
     
