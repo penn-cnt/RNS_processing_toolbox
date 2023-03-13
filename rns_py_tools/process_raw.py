@@ -19,6 +19,7 @@ import sys
 import pandas as pd
 import hdf5storage
 import traceback
+import shutil
 from datetime import datetime
 sys.path.insert(1,os.getcwd())
 from functions import NPDataHandler as npdh
@@ -62,7 +63,6 @@ def update_config_dataRange(ptList, config):
         data_end = ecog_df['Raw UTC timestamp'].iloc[-1]
         config['patients'][idx]['UTC_date_range'] = [data_start, data_end]
 
-    return config
 
 
 #%%
@@ -172,12 +172,10 @@ if __name__ == "__main__":
     if x =='y':
        
         # Create Backup config file with former start/end dates
-        json_object = json.dumps(config, indent=4)
         fname = os.path.join(os.path.dirname(confName),
          'config_backup_%s.JSON'%datetime.today().strftime('%S%M%H%d%m%Y'))
-        with open(fname, "w") as outfile:
-            outfile.write(json_object)  
-
+        shutil.copy(confName, fname)
+ 
         loadDeviceDataFromFiles(ptList, config)
 
         # Update current config with new dataRanges
