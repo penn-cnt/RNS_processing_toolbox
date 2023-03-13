@@ -235,6 +235,12 @@ def NPdat2mat(ptID, config):
         try:
             [fdata, ftime, t_conversion_usec] = _readDatFile(dataFolder, ecog_df.iloc[[i_file]])
             dlen = fdata.shape[1]
+
+            if dlen == 0:
+                logging.error('File %s has zero bytes'%(ecog_df['Filename'][i_file]))
+                dneIdx.append(i_file)
+                continue
+
             AllData.append(fdata)
             eventIdx.append(ctr + np.array([0,dlen-1]))
             ctr = ctr + dlen
