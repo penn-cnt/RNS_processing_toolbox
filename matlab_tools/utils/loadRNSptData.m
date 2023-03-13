@@ -43,7 +43,7 @@ function [ecogT, ecogD, stims, histT, pdms, OFFSET] = loadRNSptData(ptID, rns_co
         allpdms = readtable(pdmsPth);  
         pdms = allpdms(contains(allpdms.id_code, ptID),:);
 
-        if any(year(pdms.Programming_Date) < 2000)
+        if any(year(pdms.Programming_Date) < 1900)
             pdms.Programming_Date = pdms.Programming_Date + calyears(2000);
         end
 
