@@ -119,3 +119,10 @@ def filterWindows(windowsetOutside, windowsetInside):
     return set1_inclusive_inds, set1_exclusive_inds, set2_included_inds
 
 
+def updateConfigDataRange(config, ptID=None):
+    # Load in Config
+    # For each patient, Read max ecog data range
+    # Update Data Range
+    # Return as a new config file
+
+    return config

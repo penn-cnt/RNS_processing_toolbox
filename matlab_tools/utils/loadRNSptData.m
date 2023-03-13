@@ -14,6 +14,7 @@ function [ecogT, ecogD, stims, histT, pdms, OFFSET] = loadRNSptData(ptID, rns_co
         ptID
         rns_config
         options.timeOffset logical = false
+        options.UTCdateRange datetime = [NaT, NaT]
     end
 
     warning('off','MATLAB:table:ModifiedAndSavedVarnames')
@@ -32,7 +33,7 @@ function [ecogT, ecogD, stims, histT, pdms, OFFSET] = loadRNSptData(ptID, rns_co
         histT = readtable(ptPth(ptID, rns_config, 'hourly histogram'));
         minHist = min(histT.RegionStartTime, histT.UTCStartTime);
     catch
-        warning('Could not find stim data at %s',ptPth(ptID, rns_config, 'hourly histogram'))
+        warning('Could not find histogram data at %s',ptPth(ptID, rns_config, 'hourly histogram'))
         histT = [];
         minHist = datetime('now');
     end
@@ -42,7 +43,7 @@ function [ecogT, ecogD, stims, histT, pdms, OFFSET] = loadRNSptData(ptID, rns_co
         allpdms = readtable(pdmsPth);  
         pdms = allpdms(contains(allpdms.id_code, ptID),:);
 
-        if any(year(pdms.Programming_Date) < 2000)
+        if any(year(pdms.Programming_Date) < 1900)
             pdms.Programming_Date = pdms.Programming_Date + calyears(2000);
         end
 
@@ -70,6 +71,33 @@ function [ecogT, ecogD, stims, histT, pdms, OFFSET] = loadRNSptData(ptID, rns_co
         if ~isempty(histT)
             histT.RegionStartTime = histT.RegionStartTime - OFFSET;
             histT.UTCStartTime = histT.UTCStartTime - OFFSET; 
+        end   
+    end
+
+    % Constrain by UTC timestamp data range
+    if any(~isnat(options.UTCdateRange))
+
+        dateRange = options.UTCdateRange - OFFSET; 
+        UTCtime = ecogT.RawUTCTimestamp; 
+        minDate = max(datetime(0,0,0), dateRange(1));
+        maxDate = min(datetime, dateRange(2));
+        
+        
+        ecogT = ecogT((UTCtime >= minDate) & (UTCtime <= maxDate), :);
+
+        if ~isempty(stims)
+            inRange = all(stims.StimStartStopTimes >= minDate & stims.StimStartStopTimes <= maxDate,2)
+            stims.StimStartStopTimes = stims.StimStartStopTimes(inRange,:)
+            stims.StimStartStopIndex = stims.StimStartStopIndex(inRange,:)
+        end
+
+        if ~isempty(pdms), 
+            inRange = pdms.Programming_Date >= minDate & pdms.Programming_Date <= maxDate;
+            pdms = pdms(inRange, :);
+        end
+        if ~isempty(histT)
+            inRange = histT.UTCStartTime >= minDate & histT.UTCStartTime <= maxDate;
+            histT = histT(inRange, :);
         end   
     end
         

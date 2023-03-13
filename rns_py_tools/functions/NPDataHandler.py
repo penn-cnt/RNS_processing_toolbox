@@ -252,9 +252,6 @@ def NPdat2mat(ptID, config):
     assert eventIdx.shape[0] == ecog_df.shape[0]-len(dneIdx)
 
     return AllData, eventIdx, dneIdx
-
-
-def NPdat2mef(ptID, config):
     
     import jpype
     import jpype.imports
