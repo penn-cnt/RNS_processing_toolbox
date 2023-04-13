@@ -91,7 +91,7 @@ function [ecogT, ecogD, stims, histT, pdms, OFFSET] = loadRNSptData(ptID, rns_co
             stims.StimStartStopIndex = stims.StimStartStopIndex(inRange,:)
         end
 
-        if ~isempty(pdms), 
+        if ~isempty(pdms)
             inRange = pdms.Programming_Date >= minDate & pdms.Programming_Date <= maxDate;
             pdms = pdms(inRange, :);
         end
